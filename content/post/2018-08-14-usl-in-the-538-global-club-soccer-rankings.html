@@ -1,0 +1,80 @@
+---
+title: USL in the 538 Global Club Soccer Rankings
+author: Conor Tompkins
+date: '2018-08-14'
+slug: usl-in-the-538-global-club-soccer-rankings
+categories: []
+tags: []
+---
+
+
+
+<p>538 recently added the United Soccer League to their <a href="https://projects.fivethirtyeight.com/global-club-soccer-rankings/">Soccer Power Index ratings</a>. I’m a Riverhounds fan, so I wanted to see how the team compared to teams from leagues around the world.</p>
+<pre class="r"><code>library(tidyverse)
+library(ggrepel)
+
+theme_set(theme_bw())</code></pre>
+<pre class="r"><code>df &lt;- read_csv(&quot;https://projects.fivethirtyeight.com/soccer-api/club/spi_global_rankings.csv&quot;, progress = FALSE) %&gt;% 
+  group_by(league) %&gt;% 
+  mutate(league_spi = median(spi)) %&gt;% 
+  ungroup() %&gt;% 
+  mutate(league = fct_reorder(league, league_spi))
+df</code></pre>
+<pre><code>## # A tibble: 576 x 8
+##    name         league         rank prev_rank   off   def   spi league_spi
+##    &lt;chr&gt;        &lt;fct&gt;         &lt;int&gt;     &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;
+##  1 Manchester ~ Barclays Pre~     1         1   2.8   0.2  92.5       67.3
+##  2 Barcelona    Spanish Prim~     2         2   3.1   0.4  92         74.8
+##  3 Bayern Muni~ German Bunde~     3         3   3.1   0.4  91.9       66.4
+##  4 Real Madrid  Spanish Prim~     4         4   3.1   0.5  91.3       74.8
+##  5 Liverpool    Barclays Pre~     5         6   2.7   0.4  89.5       67.3
+##  6 Juventus     Italy Serie A     6         5   2.5   0.3  89.4       61.6
+##  7 Paris Saint~ French Ligue~     7         7   2.8   0.4  88.9       59.8
+##  8 Atletico Ma~ Spanish Prim~     8         8   2.3   0.3  87.1       74.8
+##  9 Tottenham H~ Barclays Pre~     9         9   2.5   0.5  85.7       67.3
+## 10 Chelsea      Barclays Pre~    10        10   2.4   0.5  85.1       67.3
+## # ... with 566 more rows</code></pre>
+<pre class="r"><code>df %&gt;% 
+  ggplot(aes(spi, league)) +
+  geom_jitter(aes(color = league), show.legend = FALSE,
+              height = .2,
+              alpha = .7) +
+  geom_jitter(data = df %&gt;% filter(name == &quot;Pittsburgh Riverhounds&quot;),
+              show.legend = FALSE,
+              height = .2,
+              alpha = .7) +
+  geom_label_repel(data = df %&gt;% filter(name == &quot;Pittsburgh Riverhounds&quot;), 
+                   aes(label = name), 
+                   size = 3,
+                   show.legend = FALSE,
+                   force = 6) +
+  labs(title = &quot;538 Soccer Power Index, 2018-19&quot;,
+       subtitle = &quot;One dot = one team&quot;,
+       y = NULL,
+       x = &quot;Soccer Power Index&quot;,
+       caption = &quot;538 data, @conor_tompkins&quot;)</code></pre>
+<p><img src="/post/2018-08-14-usl-in-the-538-global-club-soccer-rankings_files/figure-html/unnamed-chunk-3-1.png" width="768" /></p>
+<pre class="r"><code>df %&gt;% 
+  ggplot(aes(spi, league)) +
+  geom_jitter(aes(color = league), show.legend = FALSE,
+              height = .2,
+              alpha = .7) +
+  labs(title = &quot;538 Soccer Power Index, 2018-19&quot;,
+       subtitle = &quot;One dot = one team&quot;,
+       y = NULL,
+       x = &quot;Soccer Power Index&quot;,
+       caption = &quot;538 data, @conor_tompkins&quot;)</code></pre>
+<p><img src="/post/2018-08-14-usl-in-the-538-global-club-soccer-rankings_files/figure-html/unnamed-chunk-4-1.png" width="768" /></p>
+<p>This shows the offensive and defensive ratings of each USL team. The Riverhounds are squarely in the #LilleyBall quadrant.</p>
+<pre class="r"><code>df %&gt;% 
+  filter(league == &quot;United Soccer League&quot;) %&gt;% 
+  ggplot(aes(off, def, label = name)) +
+  geom_point() +
+  geom_label_repel(size = 3,
+                   force = 4) +
+  scale_y_reverse() +
+  labs(title = &quot;538 Soccer Power Index, 2018-19&quot;,
+       y = &quot;Defensive rating (scale reversed)&quot;,
+       x = &quot;Offensive rating&quot;,
+       caption = &quot;538 data, @conor_tompkins&quot;)</code></pre>
+<p><img src="/post/2018-08-14-usl-in-the-538-global-club-soccer-rankings_files/figure-html/unnamed-chunk-5-1.png" width="1152" /></p>
