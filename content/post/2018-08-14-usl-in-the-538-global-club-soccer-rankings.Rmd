@@ -71,7 +71,7 @@ df %>%
   filter(league == "United Soccer League") %>% 
   ggplot(aes(off, def, label = name)) +
   geom_point() +
-  geom_label_repel(size = 3,
+  geom_label_repel(size = 4,
                    force = 4) +
   scale_y_reverse() +
   labs(title = "538 Soccer Power Index, 2018-19",
