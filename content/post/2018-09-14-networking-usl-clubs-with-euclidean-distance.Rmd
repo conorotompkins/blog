@@ -67,7 +67,7 @@ df_dist %>%
 
 ##Network graph
 In this snippet I set a threshhold for how similar clubs need to be to warrant a connection. Then I graph it using tidygraph and ggraph. Teams that are closer together on the graph are more similar. Darker and thicker lines indicate higher similarity.
-```{r fig.height=10, fig.width=10}
+```{r fig.height=10, fig.width=12}
 distance_filter <- .5
 
 df_dist %>% 
