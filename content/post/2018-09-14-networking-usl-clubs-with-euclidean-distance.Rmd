@@ -77,9 +77,9 @@ df_dist %>%
   mutate(community = as.factor(group_edge_betweenness())) %>%
   ggraph(layout = "kk", maxiter = 1000) +
     geom_edge_fan(aes(edge_alpha = distance, edge_width = distance)) + 
-    geom_node_label(aes(label = name, color = community), size = 4) +
+    geom_node_label(aes(label = name, color = community), size = 3) +
     scale_color_discrete("Group") +
-    scale_edge_alpha_continuous("Euclidean distance ^2", range = c(.5, 0)) +
+    scale_edge_alpha_continuous("Euclidean distance ^2", range = c(.4, 0)) +
     scale_edge_width_continuous("Euclidean distance ^2", range = c(2, 0)) +
     labs(title = "United Soccer League clubs",
        subtitle = "Euclidean distance (offensive rating, defensive rating)^2",
