@@ -1,0 +1,98 @@
+---
+title: Networking USL clubs with Euclidean distance
+author: Conor Tompkins
+date: '2018-09-14'
+slug: networking-usl-clubs-with-euclidean-distance
+categories:
+  - R
+tags:
+  - '538'
+  - Riverhounds
+  - USL
+draft: FALSE
+---
+
+
+
+<p>Euclidean distance is a simple way to measure the distance between two points. It can also be used to measure how similar two sports teams are, given a set of variables. In this post, I use Euclidean distance to calculate the similarity between USL clubs and map that data to a network graph. I will use the <a href="https://projects.fivethirtyeight.com/global-club-soccer-rankings/">538 Soccer Power Index data</a> to calculate the distance.</p>
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+<pre class="r"><code>library(tidyverse)
+library(broom)
+library(ggraph)
+library(tidygraph)
+library(viridis)
+
+set_graph_style()</code></pre>
+</div>
+<div id="download-data" class="section level2">
+<h2>Download data</h2>
+<p>This code downloads the data from 538’s GitHub repo and does some light munging.</p>
+<pre class="r"><code>read_csv(&quot;https://projects.fivethirtyeight.com/soccer-api/club/spi_global_rankings.csv&quot;, progress = FALSE) %&gt;% 
+  filter(league == &quot;United Soccer League&quot;) %&gt;% 
+  mutate(name = str_replace(name, &quot;Arizona United&quot;, &quot;Phoenix Rising&quot;)) -&gt; df
+
+df</code></pre>
+<pre><code>## # A tibble: 33 x 7
+##     rank prev_rank name                league              off   def   spi
+##    &lt;int&gt;     &lt;int&gt; &lt;chr&gt;               &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+##  1   255       256 FC Cincinnati       United Soccer Le~  1.49  1.53  45.0
+##  2   361       340 Phoenix Rising      United Soccer Le~  1.37  1.72  38.5
+##  3   419       396 Louisville City FC  United Soccer Le~  1.28  1.85  34.1
+##  4   427       428 Orange County SC    United Soccer Le~  1.23  1.81  33.5
+##  5   481       513 Pittsburgh Riverho~ United Soccer Le~  0.77  1.4   29.7
+##  6   490       461 Bethlehem Steel FC  United Soccer Le~  1.14  1.97  28.9
+##  7   491       460 Real Monarchs SLC   United Soccer Le~  1.04  1.84  28.9
+##  8   494       481 New York Red Bulls~ United Soccer Le~  1.5   2.49  28.4
+##  9   496       497 Charleston Battery  United Soccer Le~  0.8   1.53  28.1
+## 10   499       491 Reno 1868 FC        United Soccer Le~  1.01  1.86  27.8
+## # ... with 23 more rows</code></pre>
+</div>
+<div id="calculate-euclidean-distance" class="section level2">
+<h2>Calculate Euclidean distance</h2>
+<p>This is the code that measures the distance between the clubs. It uses the 538 offensive and defensive ratings.</p>
+<pre class="r"><code>df %&gt;% 
+  select(name, off, def) %&gt;% 
+  column_to_rownames(var = &quot;name&quot;) -&gt; df_dist
+
+#df_dist
+#rownames(df_dist) %&gt;% 
+#  head()
+
+df_dist &lt;- dist(df_dist, &quot;euclidean&quot;, upper = FALSE)
+#head(df_dist)
+
+df_dist %&gt;% 
+  tidy() %&gt;% 
+  arrange(desc(distance)) -&gt; df_dist
+
+#df_dist %&gt;% 
+#  count(item1, sort = TRUE) %&gt;% 
+#  ggplot(aes(item1, n)) +
+#  geom_point() +
+#  coord_flip() +
+#  theme_bw()</code></pre>
+</div>
+<div id="network-graph" class="section level2">
+<h2>Network graph</h2>
+<p>In this snippet I set a threshhold for how similar clubs need to be to warrant a connection. Then I graph it using tidygraph and ggraph. Teams that are closer together on the graph are more similar. Darker and thicker lines indicate higher similarity.</p>
+<pre class="r"><code>distance_filter &lt;- .5
+
+df_dist %&gt;% 
+  mutate(distance = distance^2) %&gt;% 
+  filter(distance &lt;= distance_filter) %&gt;%
+  as_tbl_graph() %&gt;% 
+  mutate(community = as.factor(group_edge_betweenness())) %&gt;%
+  ggraph(layout = &quot;kk&quot;, maxiter = 1000) +
+    geom_edge_fan(aes(edge_alpha = distance, edge_width = distance)) + 
+    geom_node_label(aes(label = name, color = community), size = 4) +
+    scale_color_discrete(&quot;Group&quot;) +
+    scale_edge_alpha_continuous(&quot;Euclidean distance ^2&quot;, range = c(.5, 0)) +
+    scale_edge_width_continuous(&quot;Euclidean distance ^2&quot;, range = c(2, 0)) +
+    labs(title = &quot;United Soccer League clubs&quot;,
+       subtitle = &quot;Euclidean distance (offensive rating, defensive rating)^2&quot;,
+       x = NULL,
+       y = NULL,
+       caption = &quot;538 data, @conor_tompkins&quot;)</code></pre>
+<p><img src="/post/2018-09-14-networking-usl-clubs-with-euclidean-distance_files/figure-html/unnamed-chunk-4-1.png" width="960" /></p>
+</div>
