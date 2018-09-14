@@ -1,0 +1,12 @@
+---
+title: Networking USL clubs with Euclidean distance
+author: Conor Tompkins
+date: '2018-09-14'
+slug: networking-usl-clubs-with-euclidean-distance
+categories:
+  - R
+tags:
+  - '538'
+  - Riverhounds
+  - USL
+---
