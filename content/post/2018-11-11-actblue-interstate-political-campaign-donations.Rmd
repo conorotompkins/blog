@@ -32,7 +32,7 @@ states <- cbind(states, st_coordinates(st_centroid(states)))
 
 #state abbreviations from https://www.infoplease.com/state-abbreviations-and-state-postal-codes
 ```{r}
-state_abbreviations <- read_csv("data/state_abbreviations.csv") %>% 
+state_abbreviations <- read_csv("https://raw.githubusercontent.com/conorotompkins/politics/master/data/state_abbreviations.csv") %>% 
   clean_names() %>% 
   mutate(state_district = tolower(state_district)) %>% 
   rename(abbr = postal_code) %>% 
