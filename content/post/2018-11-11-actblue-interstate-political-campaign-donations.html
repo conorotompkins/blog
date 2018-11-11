@@ -1,0 +1,202 @@
+---
+title: 'ActBlue: Interstate Political Campaign Donations'
+author: Conor Tompkins
+date: '2018-11-11'
+slug: actblue-interstate-political-campaign-donations
+categories:
+  - R
+  - politics
+tags: []
+---
+
+
+
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## -- Attaching packages ----------------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>## v ggplot2 3.1.0     v purrr   0.2.5
+## v tibble  1.4.2     v dplyr   0.7.8
+## v tidyr   0.8.2     v stringr 1.3.1
+## v readr   1.1.1     v forcats 0.3.0</code></pre>
+<pre><code>## -- Conflicts -------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
+<pre class="r"><code>library(maps)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;maps&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     map</code></pre>
+<pre class="r"><code>library(sf)</code></pre>
+<pre><code>## Linking to GEOS 3.6.1, GDAL 2.2.3, PROJ 4.9.3</code></pre>
+<pre class="r"><code>library(rgeos)</code></pre>
+<pre><code>## rgeos version: 0.4-2, (SVN revision 581)
+##  GEOS runtime version: 3.6.1-CAPI-1.10.1 
+##  Linking to sp version: 1.3-1 
+##  Polygon checking: TRUE</code></pre>
+<pre class="r"><code>library(janitor)
+library(ggrepel)
+library(tidygraph)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;tidygraph&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:stats&#39;:
+## 
+##     filter</code></pre>
+<pre class="r"><code>library(ggraph)
+
+theme_set(theme_graph())</code></pre>
+<pre class="r"><code>states &lt;- st_as_sf(map(&quot;state&quot;, plot = FALSE, fill = TRUE))
+head(states)</code></pre>
+<pre><code>## Simple feature collection with 6 features and 1 field
+## geometry type:  MULTIPOLYGON
+## dimension:      XY
+## bbox:           xmin: -124.3834 ymin: 30.24071 xmax: -71.78015 ymax: 42.04937
+## epsg (SRID):    4326
+## proj4string:    +proj=longlat +datum=WGS84 +no_defs
+##                         geometry          ID
+## 1 MULTIPOLYGON (((-87.46201 3...     alabama
+## 2 MULTIPOLYGON (((-114.6374 3...     arizona
+## 3 MULTIPOLYGON (((-94.05103 3...    arkansas
+## 4 MULTIPOLYGON (((-120.006 42...  california
+## 5 MULTIPOLYGON (((-102.0552 4...    colorado
+## 6 MULTIPOLYGON (((-73.49902 4... connecticut</code></pre>
+<pre class="r"><code>states &lt;- cbind(states, st_coordinates(st_centroid(states)))</code></pre>
+<pre><code>## Warning in st_centroid.sf(states): st_centroid assumes attributes are
+## constant over geometries of x</code></pre>
+<pre><code>## Warning in st_centroid.sfc(st_geometry(x), of_largest_polygon =
+## of_largest_polygon): st_centroid does not give correct centroids for
+## longitude/latitude data</code></pre>
+<div id="state-abbreviations-from-httpswww.infoplease.comstate-abbreviations-and-state-postal-codes" class="section level1">
+<h1>state abbreviations from <a href="https://www.infoplease.com/state-abbreviations-and-state-postal-codes" class="uri">https://www.infoplease.com/state-abbreviations-and-state-postal-codes</a></h1>
+<pre class="r"><code>state_abbreviations &lt;- read_csv(&quot;https://raw.githubusercontent.com/conorotompkins/politics/master/data/state_abbreviations.csv&quot;) %&gt;% 
+  clean_names() %&gt;% 
+  mutate(state_district = tolower(state_district)) %&gt;% 
+  rename(abbr = postal_code) %&gt;% 
+  select(-abbreviation)</code></pre>
+<pre><code>## Parsed with column specification:
+## cols(
+##   State_District = col_character(),
+##   Abbreviation = col_character(),
+##   `Postal Code` = col_character()
+## )</code></pre>
+<pre class="r"><code>states &lt;- states %&gt;% 
+  left_join(state_abbreviations, by = c(&quot;ID&quot; = &quot;state_district&quot;)) %&gt;% 
+  arrange(abbr)</code></pre>
+<pre class="r"><code>df &lt;- read_csv(&quot;https://raw.githubusercontent.com/PublicI/actblue-analysis/master/data/actblue_states.csv&quot;)</code></pre>
+<pre><code>## Warning: Missing column names filled in: &#39;X1&#39; [1]</code></pre>
+<pre><code>## Parsed with column specification:
+## cols(
+##   X1 = col_integer(),
+##   contributor_state = col_character(),
+##   recipient_state = col_character(),
+##   count = col_integer(),
+##   sum = col_double()
+## )</code></pre>
+<pre class="r"><code>df %&gt;% 
+  semi_join(states, by = c(&quot;contributor_state&quot; = &quot;abbr&quot;)) %&gt;% 
+  semi_join(states, by = c(&quot;recipient_state&quot; = &quot;abbr&quot;)) -&gt; df
+
+df %&gt;% 
+  select(-c(X1, count, sum)) %&gt;% 
+  gather(state_type, state_name) %&gt;% 
+  distinct() %&gt;% 
+  group_by(state_type) %&gt;% 
+  summarize(n = n())</code></pre>
+<pre><code>## # A tibble: 2 x 2
+##   state_type            n
+##   &lt;chr&gt;             &lt;int&gt;
+## 1 contributor_state    49
+## 2 recipient_state      49</code></pre>
+<pre class="r"><code>states %&gt;% 
+  semi_join(df, by = c(&quot;abbr&quot; = &quot;contributor_state&quot;)) %&gt;% 
+  semi_join(df, by = c(&quot;abbr&quot; = &quot;recipient_state&quot;))  -&gt; states</code></pre>
+<pre class="r"><code>states %&gt;% 
+  ggplot() +
+  geom_sf() +
+  geom_point(aes(X, Y))</code></pre>
+<p><img src="/post/2018-11-11-actblue-interstate-political-campaign-donations_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<pre class="r"><code>df %&gt;%
+  select(-`X1`) %&gt;% 
+  arrange(contributor_state, recipient_state) %&gt;% 
+  mutate(sum = sum / 10^6,
+         sum = round(sum, digits = 2)) %&gt;% 
+  na.omit() %&gt;% 
+  filter(!(contributor_state == recipient_state)) -&gt; df_intermediate
+
+df_intermediate %&gt;% 
+  as_tbl_graph(directed = TRUE) -&gt; g</code></pre>
+<pre class="r"><code>threshhold &lt;- 1
+
+g %&gt;% 
+  activate(edges) %&gt;% 
+  filter(sum &gt;= 1) -&gt; g
+
+node_pos &lt;- states %&gt;%
+  select(abbr, X, Y) %&gt;%
+  rename(x = X, y = Y) %&gt;%  # node positions must be called x, y
+  st_set_geometry(NULL)
+str(node_pos)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    49 obs. of  3 variables:
+##  $ abbr: chr  &quot;AL&quot; &quot;AR&quot; &quot;AZ&quot; &quot;CA&quot; ...
+##  $ x   : num  -86.8 -92.4 -111.7 -119.6 -105.6 ...
+##  $ y   : num  32.8 34.9 34.3 37.3 39 ...</code></pre>
+<pre class="r"><code>lay &lt;- create_layout(g, &#39;manual&#39;,
+                     node.positions = node_pos)
+
+manual_layout &lt;- create_layout(graph = g,
+                               layout = &quot;manual&quot;, node.positions = node_pos)</code></pre>
+<pre class="r"><code>ggraph(manual_layout) +
+  geom_sf(data = states) +
+  geom_node_label(aes(label = name),repel = FALSE) +
+  geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
+                arrow = arrow(length = unit(4, &#39;mm&#39;)), 
+                start_cap = circle(3, &#39;mm&#39;),
+                end_cap = circle(3, &#39;mm&#39;),
+                color = &quot;blue&quot;) +
+  scale_edge_width_continuous(&quot;Donations in millions USD&quot;, range = c(.3, 2)) +
+  scale_edge_alpha_continuous(&quot;Donations in millions USD&quot;, range = c(.1, 1)) +
+  labs(title = &quot;ActBlue Political Donations&quot;,
+       subtitle = str_c(&quot;Aggregate interstate donations greater than $&quot;, threshhold, &quot; million USD&quot;),
+       caption = &quot;@conorotompkins, data from Center for Public Integrity and 538&quot;) +
+  theme(panel.grid.major = element_line(colour = &#39;transparent&#39;)) -&gt; p
+
+p</code></pre>
+<pre><code>## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database
+
+## Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y, :
+## font family not found in Windows font database</code></pre>
+<p><img src="/post/2018-11-11-actblue-interstate-political-campaign-donations_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+</div>
