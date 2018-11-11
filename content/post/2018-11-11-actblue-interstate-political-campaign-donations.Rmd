@@ -8,6 +8,12 @@ categories:
   - politics
 tags: []
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      warning = FALSE, 
+                      message = FALSE)
+```
+
 ```{r}
 library(tidyverse)
 library(maps)
@@ -70,7 +76,8 @@ states %>%
 states %>% 
   ggplot() +
   geom_sf() +
-  geom_point(aes(X, Y))
+  geom_point(aes(X, Y)) +
+  theme(panel.grid.major = element_line(colour = 'transparent'))
 ```
 
 ```{r}
