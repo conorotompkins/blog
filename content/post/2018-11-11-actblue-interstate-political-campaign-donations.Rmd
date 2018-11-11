@@ -8,12 +8,15 @@ categories:
   - politics
 tags: []
 ---
+ActBlue is a ____ that allows citizens to make donations to the political campaigns of Democractic candidates across the nation. This post uses graph theory to analyze how political donations moved across states.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       warning = FALSE, 
                       message = FALSE)
 ```
 
+##Setup
+These are the libraries and graph theme I will use:
 ```{r}
 library(tidyverse)
 library(maps)
@@ -27,16 +30,18 @@ library(ggraph)
 theme_set(theme_graph())
 ```
 
+This code pulls the boundary polygons for the 48 continental U.S. states and the District of Columbia.
 ```{r}
 states <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
 head(states)
 ```
 
+This code finds the center of each state, which will act as the nodes for the network graph.
 ```{r}
 states <- cbind(states, st_coordinates(st_centroid(states)))
 ```
 
-#state abbreviations from https://www.infoplease.com/state-abbreviations-and-state-postal-codes
+I used [this file](https://www.infoplease.com/state-abbreviations-and-state-postal-codes) to get the abbreviations for each state.
 ```{r}
 state_abbreviations <- read_csv("https://raw.githubusercontent.com/conorotompkins/politics/master/data/state_abbreviations.csv") %>% 
   clean_names() %>% 
@@ -49,10 +54,12 @@ states <- states %>%
   arrange(abbr)
 ```
 
+This pulls the ActBlue data from the [Center of Public Integrity GitHub repo](https://www.publicintegrity.org/).
 ```{r}
 df <- read_csv("https://raw.githubusercontent.com/PublicI/actblue-analysis/master/data/actblue_states.csv")
 ```
 
+This joins the boundary data with the state abbreviations.
 ```{r}
 df %>% 
   semi_join(states, by = c("contributor_state" = "abbr")) %>% 
@@ -66,12 +73,14 @@ df %>%
   summarize(n = n())
 ```
 
+This code excludes non-continental U.S. states/territories.
 ```{r}
 states %>% 
   semi_join(df, by = c("abbr" = "contributor_state")) %>% 
   semi_join(df, by = c("abbr" = "recipient_state"))  -> states
 ```
 
+This plot shows that the boundary shapes and centroids are correct.
 ```{r}
 states %>% 
   ggplot() +
@@ -80,6 +89,7 @@ states %>%
   theme(panel.grid.major = element_line(colour = 'transparent'))
 ```
 
+This code cleans up the ActBlue data and removes intrastate donations.
 ```{r}
 df %>%
   select(-`X1`) %>% 
@@ -88,18 +98,41 @@ df %>%
          sum = round(sum, digits = 2)) %>% 
   na.omit() %>% 
   filter(!(contributor_state == recipient_state)) -> df_intermediate
-
-df_intermediate %>% 
-  as_tbl_graph(directed = TRUE) -> g
 ```
 
+##First attempt
+This is how the data looks when graphed as a typical network graph. The nodes (states) are not positioned geographically, which makes it difficult to understand. Aggregate donations less than $500,000 are excluded.
 ```{r}
+df_intermediate %>% 
+  as_tbl_graph(directed = TRUE) %>% 
+  activate(edges) %>% 
+  filter(sum >= .5) %>% 
+  ggraph() +
+  geom_node_label(aes(label = name), size = 1, repel = FALSE) +
+  geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
+                arrow = arrow(length = unit(4, 'mm')), 
+                start_cap = circle(3, 'mm'),
+                end_cap = circle(3, 'mm'),
+                color = "blue") +
+  scale_edge_width_continuous("Donations in millions USD", range = c(.3, 2)) +
+  scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1))
+```
+
+##Mapping node positions to state geography
+This code turns the data into a network file and sets the threshhold at $1 million
+```{r}
+df_intermediate %>% 
+  as_tbl_graph(directed = TRUE) -> g
+
 threshhold <- 1
 
 g %>% 
   activate(edges) %>% 
   filter(sum >= 1) -> g
+```
 
+This code creates the node positions for the network graph. The centroid of each state will be used as the node for that state.
+```{r}
 node_pos <- states %>%
   select(abbr, X, Y) %>%
   rename(x = X, y = Y) %>%  # node positions must be called x, y
@@ -107,6 +140,7 @@ node_pos <- states %>%
 str(node_pos)
 ```
 
+This code creates the node layout the graph will use and merges the network data with the layout.
 ```{r}
 lay <- create_layout(g, 'manual',
                      node.positions = node_pos)
@@ -114,10 +148,12 @@ lay <- create_layout(g, 'manual',
 manual_layout <- create_layout(graph = g,
                                layout = "manual", node.positions = node_pos)
 ```
+
+This is the final graph:
 ```{r}
 ggraph(manual_layout) +
   geom_sf(data = states) +
-  geom_node_label(aes(label = name),repel = FALSE) +
+  #geom_node_label(aes(label = name), size = 1, repel = FALSE) +
   geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
                 arrow = arrow(length = unit(4, 'mm')), 
                 start_cap = circle(3, 'mm'),
@@ -132,3 +168,9 @@ ggraph(manual_layout) +
 
 p
 ```
+
+##References
+
+* https://github.com/PublicI/actblue-analysis
+* https://datascience.blog.wzb.eu/2018/05/31/three-ways-of-visualizing-a-graph-on-a-map/
+* https://lookatthhedata.netlify.com/2017-11-12-mapping-your-oyster-card-journeys-in-london-with-tidygraph-and-ggraph/
