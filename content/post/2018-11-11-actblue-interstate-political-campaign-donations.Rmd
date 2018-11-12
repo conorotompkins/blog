@@ -8,7 +8,7 @@ categories:
   - politics
 tags: []
 ---
-ActBlue is a ____ that allows citizens to make donations to the political campaigns of Democractic candidates across the nation. This post uses graph theory to analyze how political donations moved across states.
+ActBlue is an online service that allows people to make donations to the political campaigns of Democractic candidates across the country. This post uses graph theory to analyze how political donations moved across states.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       warning = FALSE, 
@@ -41,7 +41,7 @@ This code finds the center of each state, which will act as the nodes for the ne
 states <- cbind(states, st_coordinates(st_centroid(states)))
 ```
 
-I used [this file](https://www.infoplease.com/state-abbreviations-and-state-postal-codes) to get the abbreviations for each state.
+I used [this website](https://www.infoplease.com/state-abbreviations-and-state-postal-codes) to get the abbreviations for each state.
 ```{r}
 state_abbreviations <- read_csv("https://raw.githubusercontent.com/conorotompkins/politics/master/data/state_abbreviations.csv") %>% 
   clean_names() %>% 
@@ -73,7 +73,7 @@ df %>%
   summarize(n = n())
 ```
 
-This code excludes non-continental U.S. states/territories.
+This code joins the boundary data with the ActBlue data and excludes donations to and from non-continental U.S. states/territories.
 ```{r}
 states %>% 
   semi_join(df, by = c("abbr" = "contributor_state")) %>% 
@@ -101,13 +101,13 @@ df %>%
 ```
 
 ##First attempt
-This is how the data looks when graphed as a typical network graph. The nodes (states) are not positioned geographically, which makes it difficult to understand. Aggregate donations less than $500,000 are excluded.
+This is how the data looks when graphed as a typical network graph. The nodes (states) are not positioned geographically, which makes it difficult to understand. Aggregate donations less than $1,000,000 are excluded.
 ```{r}
 df_intermediate %>% 
   as_tbl_graph(directed = TRUE) %>% 
   activate(edges) %>% 
-  filter(sum >= .5) %>% 
-  ggraph() +
+  filter(sum >= 1) %>% 
+  ggraph(layout =) +
   geom_node_label(aes(label = name), size = 1, repel = FALSE) +
   geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
                 arrow = arrow(length = unit(4, 'mm')), 
@@ -119,7 +119,7 @@ df_intermediate %>%
 ```
 
 ##Mapping node positions to state geography
-This code turns the data into a network file and sets the threshhold at $1 million
+This code turns the data into a network object and sets the minimum threshhold at $1 million
 ```{r}
 df_intermediate %>% 
   as_tbl_graph(directed = TRUE) -> g
@@ -153,20 +153,119 @@ This is the final graph:
 ```{r}
 ggraph(manual_layout) +
   geom_sf(data = states) +
-  #geom_node_label(aes(label = name), size = 1, repel = FALSE) +
+  geom_node_point(size = .5, alpha = 0) +
   geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
                 arrow = arrow(length = unit(4, 'mm')), 
-                start_cap = circle(3, 'mm'),
-                end_cap = circle(3, 'mm'),
+                start_cap = circle(1, 'mm'),
+                end_cap = circle(1, 'mm'),
                 color = "blue") +
   scale_edge_width_continuous("Donations in millions USD", range = c(.3, 2)) +
   scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
   labs(title = "ActBlue Political Donations",
-       subtitle = str_c("Aggregate interstate donations greater than $", threshhold, " million USD"),
+       subtitle = str_c("Aggregate interstate donations greater than $", threshhold, " million USD, 2017-01-01 to 2018-09-30"),
        caption = "@conorotompkins, data from Center for Public Integrity and 538") +
   theme(panel.grid.major = element_line(colour = 'transparent')) -> p
 
 p
+```
+
+##To and From
+This shows all the donations from California. Note the different scale of funds.
+```{r echo=FALSE}
+g %>% 
+  activate(nodes) %>% 
+  as_tibble() %>% 
+  mutate(index = row_number()) -> state_nodes
+
+from_state <- "CA"
+
+from_state_index <- state_nodes %>% 
+  filter(name == from_state) %>% 
+  select(index) %>% 
+  unlist()
+  
+g %>% 
+  activate(edges) %>% 
+  filter(from == from_state_index) -> g
+
+node_pos <- states %>%
+  select(abbr, X, Y) %>%
+  rename(x = X, y = Y) %>%  # node positions must be called x, y
+  st_set_geometry(NULL)
+
+lay <- create_layout(g, 'manual',
+                     node.positions = node_pos)
+
+manual_layout <- create_layout(graph = g,
+                               layout = "manual", node.positions = node_pos)
+
+
+ggraph(manual_layout) +
+  geom_sf(data = states) +
+  geom_node_point(size = .5, alpha = 0) +
+  geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
+                arrow = arrow(length = unit(4, 'mm')), 
+                start_cap = circle(1, 'mm'),
+                end_cap = circle(1, 'mm'),
+                color = "blue") +
+  scale_edge_width_continuous("Donations in millions USD", range = c(.3, 2)) +
+  scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
+  labs(title = "ActBlue Political Donations",
+       subtitle = str_c("Aggregate interstate donations from ", from_state, ", 2017-01-01 to 2018-09-30"),
+       caption = "@conorotompkins, data from Center for Public Integrity and 538") +
+  theme(panel.grid.major = element_line(colour = 'transparent')) -> p_ca
+
+p_ca
+```
+
+This shows the donations to candidates in Texas. Note the different scale of funds.
+```{r echo=FALSE}
+df_intermediate %>% 
+  as_tbl_graph(directed = TRUE) -> g
+
+g %>% 
+  activate(nodes) %>% 
+  as_tibble() %>% 
+  mutate(index = row_number()) -> state_nodes
+
+to_state <- "TX"
+
+to_state_index <- state_nodes %>% 
+  filter(name == to_state) %>% 
+  select(index) %>% 
+  unlist()
+
+g %>% 
+  activate(edges) %>% 
+  filter(to == to_state_index) -> g
+
+node_pos <- states %>%
+  select(abbr, X, Y) %>%
+  rename(x = X, y = Y) %>%  # node positions must be called x, y
+  st_set_geometry(NULL)
+
+lay <- create_layout(g, 'manual',
+                     node.positions = node_pos)
+
+manual_layout <- create_layout(graph = g,
+                               layout = "manual", node.positions = node_pos)
+
+ggraph(manual_layout) +
+  geom_sf(data = states) +
+  geom_node_point(size = .5, alpha = 0) +
+  geom_edge_fan(aes(edge_width = sum, edge_alpha = sum),
+                arrow = arrow(length = unit(4, 'mm')), 
+                start_cap = circle(1, 'mm'),
+                end_cap = circle(1, 'mm'),
+                color = "blue") +
+  scale_edge_width_continuous("Donations in millions USD", range = c(.3, 2)) +
+  scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
+  labs(title = "ActBlue Political Donations",
+       subtitle = str_c("Aggregate interstate donations to ", to_state, ", 2017-01-01 to 2018-09-30"),
+       caption = "@conorotompkins, data from Center for Public Integrity and 538") +
+  theme(panel.grid.major = element_line(colour = 'transparent')) -> p_tx
+
+p_tx
 ```
 
 ##References
