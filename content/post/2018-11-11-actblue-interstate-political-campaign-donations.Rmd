@@ -163,7 +163,7 @@ ggraph(manual_layout) +
   scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
   labs(title = "ActBlue Political Donations",
        subtitle = str_c("Aggregate interstate donations greater than $", threshhold, " million USD, 2017-01-01 to 2018-09-30"),
-       caption = "@conorotompkins, data from Center for Public Integrity and 538") +
+       caption = "@conor_tompkins, data from Center for Public Integrity and 538") +
   theme(panel.grid.major = element_line(colour = 'transparent')) -> p
 
 p
@@ -212,7 +212,7 @@ ggraph(manual_layout) +
   scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
   labs(title = "ActBlue Political Donations",
        subtitle = str_c("Aggregate interstate donations from ", from_state, ", 2017-01-01 to 2018-09-30"),
-       caption = "@conorotompkins, data from Center for Public Integrity and 538") +
+       caption = "@conor_tompkins, data from Center for Public Integrity and 538") +
   theme(panel.grid.major = element_line(colour = 'transparent')) -> p_ca
 
 p_ca
@@ -262,7 +262,7 @@ ggraph(manual_layout) +
   scale_edge_alpha_continuous("Donations in millions USD", range = c(.1, 1)) +
   labs(title = "ActBlue Political Donations",
        subtitle = str_c("Aggregate interstate donations to ", to_state, ", 2017-01-01 to 2018-09-30"),
-       caption = "@conorotompkins, data from Center for Public Integrity and 538") +
+       caption = "@conor_tompkins, data from Center for Public Integrity and 538") +
   theme(panel.grid.major = element_line(colour = 'transparent')) -> p_tx
 
 p_tx
