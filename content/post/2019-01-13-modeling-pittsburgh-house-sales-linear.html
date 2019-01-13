@@ -1,0 +1,316 @@
+---
+title: Modeling Pittsburgh House Sales - Linear
+author: Conor Tompkins
+date: '2019-01-13'
+slug: modeling-pittsburgh-house-sales-linear
+categories: []
+tags: []
+runtime: shiny
+---
+
+
+
+<p>In this post I will be modeling house (land parcel) sales in Pittsburgh. The data is from the WPRDC’s <a href="http://tools.wprdc.org/parcels-n-at/#">Parcels n’at</a> dashboard.</p>
+<p>The goal is to use linear modeling to predict the sale price of a house using features of the house and the property.</p>
+<p>This code sets up the environment and loads the libraries I will use.</p>
+<pre class="r"><code>#load libraries
+library(tidyverse)
+library(scales)
+library(caret)
+library(broom)
+library(modelr)
+library(rsample)
+library(janitor)
+
+#set up environment
+options(scipen = 999, digits = 5)
+
+theme_set(theme_bw())</code></pre>
+<p>This reads the data and engineers some features.</p>
+<pre class="r"><code>#read in data
+df &lt;- read_csv(&quot;parcel_data.csv&quot;, progress = FALSE) %&gt;% 
+  clean_names() %&gt;% 
+  select(-geom) %&gt;% 
+  mutate(munidesc_asmt = str_replace(munidesc_asmt, &quot; - PITTSBURGH&quot;, &quot;&quot;)) %&gt;% 
+  mutate(finishedlivingarea_asmt_log10 = log10(finishedlivingarea_asmt),
+         lotarea_asmt_log10 = log10(lotarea_asmt),
+         price_sales_log10 = log10(price_sales),
+         saleprice_asmt_log10 = log10(saleprice_asmt)) %&gt;% 
+  select(pin, classdesc_asmt, munidesc_asmt, schooldesc_asmt, neighdesc_asmt, taxdesc_asmt,
+         usedesc_asmt, homesteadflag_asmt, farmsteadflag_asmt, styledesc_asmt,
+         yearblt_asmt, extfinish_desc_asmt, roofdesc_asmt,  basementdesc_asmt,
+         gradedesc_asmt, conditiondesc_asmt, stories_asmt, totalrooms_asmt, bedrooms_asmt,
+         fullbaths_asmt, halfbaths_asmt, heatingcoolingdesc_asmt, fireplaces_asmt, 
+         bsmtgarage_asmt, finishedlivingarea_asmt, finishedlivingarea_asmt_log10,
+         lotarea_asmt, lotarea_asmt_log10, saledate_sales, price_sales, price_sales_log10,
+         saleprice_asmt, saleprice_asmt_log10)
+
+#create grade vectors
+grades_standard &lt;- c(&quot;average -&quot;, &quot;average&quot;, &quot;average +&quot;,
+                     &quot;good -&quot;, &quot;good&quot;, &quot;good +&quot;,
+                     &quot;very good -&quot;, &quot;very good&quot;, &quot;very good +&quot;)
+
+grades_below_average_or_worse &lt;- c(&quot;poor -&quot;, &quot;poor&quot;, &quot;poor +&quot;,
+                                   &quot;below average -&quot;, &quot;below average&quot;, &quot;below average +&quot;)
+
+grades_excellent_or_better &lt;- c(&quot;excellent -&quot;, &quot;excellent&quot;, &quot;excellent +&quot;,
+                                &quot;highest cost -&quot;, &quot;highest cost&quot;, &quot;highest cost +&quot;)
+
+#subset data and engineer features
+df &lt;- df %&gt;% 
+  filter(classdesc_asmt == &quot;RESIDENTIAL&quot;,
+         saleprice_asmt &gt; 100,
+         str_detect(munidesc_asmt, &quot;Ward&quot;),
+         finishedlivingarea_asmt &gt; 0,
+         lotarea_asmt &gt; 0) %&gt;% 
+  select(pin, munidesc_asmt, schooldesc_asmt, neighdesc_asmt, taxdesc_asmt,
+         usedesc_asmt, homesteadflag_asmt, farmsteadflag_asmt, styledesc_asmt,
+         yearblt_asmt, extfinish_desc_asmt, roofdesc_asmt,  basementdesc_asmt, 
+         heatingcoolingdesc_asmt, gradedesc_asmt, conditiondesc_asmt, stories_asmt, 
+         totalrooms_asmt, bedrooms_asmt, fullbaths_asmt, halfbaths_asmt, fireplaces_asmt, 
+         bsmtgarage_asmt, finishedlivingarea_asmt_log10, lotarea_asmt_log10, price_sales_log10, 
+         saleprice_asmt_log10, saledate_sales) %&gt;% 
+  mutate(usedesc_asmt = fct_lump(usedesc_asmt, n = 5),
+         styledesc_asmt = fct_lump(styledesc_asmt, n = 10),
+         #clean up and condense gradedesc_asmt
+         gradedesc_asmt = str_to_lower(gradedesc_asmt),
+         gradedesc_asmt = case_when(gradedesc_asmt %in% grades_below_average_or_worse ~ &quot;below average + or worse&quot;,
+                                    gradedesc_asmt %in% grades_excellent_or_better ~ &quot;excellent - or better&quot;,
+                                    gradedesc_asmt %in% grades_standard ~ gradedesc_asmt),
+         gradedesc_asmt = fct_relevel(gradedesc_asmt, c(&quot;below average + or worse&quot;, &quot;average -&quot;, &quot;average&quot;, &quot;average +&quot;,
+                                                        &quot;good -&quot;, &quot;good&quot;, &quot;good +&quot;,
+                                                        &quot;very good -&quot;, &quot;very good&quot;, &quot;very good +&quot;, &quot;excellent - or better&quot;)))
+
+#replace missing character rows with &quot;missing&quot;, change character columns to factor
+df &lt;- df %&gt;% 
+  mutate_if(is.character, replace_na, &quot;missing&quot;) %&gt;% 
+  mutate_if(is.character, as.factor)
+
+#select response and features
+df &lt;- df %&gt;% 
+  select(munidesc_asmt, usedesc_asmt, styledesc_asmt, conditiondesc_asmt, gradedesc_asmt,
+         finishedlivingarea_asmt_log10, lotarea_asmt_log10, yearblt_asmt, bedrooms_asmt, 
+         fullbaths_asmt, halfbaths_asmt, saleprice_asmt_log10) %&gt;% 
+  na.omit()
+
+#view data
+glimpse(df)</code></pre>
+<pre><code>## Observations: 64,521
+## Variables: 12
+## $ munidesc_asmt                 &lt;fct&gt; 29th Ward, 26th Ward, 14th Ward,...
+## $ usedesc_asmt                  &lt;fct&gt; SINGLE FAMILY, SINGLE FAMILY, SI...
+## $ styledesc_asmt                &lt;fct&gt; OLD STYLE, OLD STYLE, OLD STYLE,...
+## $ conditiondesc_asmt            &lt;fct&gt; FAIR, FAIR, GOOD, AVERAGE, AVERA...
+## $ gradedesc_asmt                &lt;fct&gt; average, average, average +, ave...
+## $ finishedlivingarea_asmt_log10 &lt;dbl&gt; 3.3659, 3.1917, 3.3617, 3.0350, ...
+## $ lotarea_asmt_log10            &lt;dbl&gt; 3.7796, 3.7267, 3.4698, 3.8008, ...
+## $ yearblt_asmt                  &lt;dbl&gt; 1905, 1930, 1900, 1930, 1930, 19...
+## $ bedrooms_asmt                 &lt;dbl&gt; 3, 3, 3, 3, 3, 2, 3, 8, 2, 4, 3,...
+## $ fullbaths_asmt                &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1,...
+## $ halfbaths_asmt                &lt;dbl&gt; 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,...
+## $ saleprice_asmt_log10          &lt;dbl&gt; 4.6128, 4.9149, 5.6314, 4.1761, ...</code></pre>
+<p>This code sets up the data for cross validation.</p>
+<pre class="r"><code>#create initial split object
+df_split &lt;- initial_split(df, prop = .75)
+
+#extract training dataframe
+training_data_full &lt;- training(df_split)
+
+#extract testing dataframe
+testing_data &lt;- testing(df_split)
+
+#find dimensions of training_data_full and testing_data
+dim(training_data_full)</code></pre>
+<pre><code>## [1] 48391    12</code></pre>
+<pre class="r"><code>dim(testing_data)</code></pre>
+<pre><code>## [1] 16130    12</code></pre>
+<p>This code divides the data into training and testing sets.</p>
+<pre class="r"><code>set.seed(42)
+
+#prep the df with the cross validation partitions
+cv_split &lt;- vfold_cv(training_data_full, v = 5)
+
+cv_data &lt;- cv_split %&gt;% 
+  mutate(
+    #extract train dataframe for each split
+    train = map(splits, ~training(.x)), 
+    #extract validate dataframe for each split
+    validate = map(splits, ~testing(.x))
+  )
+
+#view df
+cv_data</code></pre>
+<pre><code>## #  5-fold cross-validation 
+## # A tibble: 5 x 4
+##   splits               id    train                  validate             
+## * &lt;list&gt;               &lt;chr&gt; &lt;list&gt;                 &lt;list&gt;               
+## 1 &lt;split [38.7K/9.7K]&gt; Fold1 &lt;tibble [38,712 x 12]&gt; &lt;tibble [9,679 x 12]&gt;
+## 2 &lt;split [38.7K/9.7K]&gt; Fold2 &lt;tibble [38,713 x 12]&gt; &lt;tibble [9,678 x 12]&gt;
+## 3 &lt;split [38.7K/9.7K]&gt; Fold3 &lt;tibble [38,713 x 12]&gt; &lt;tibble [9,678 x 12]&gt;
+## 4 &lt;split [38.7K/9.7K]&gt; Fold4 &lt;tibble [38,713 x 12]&gt; &lt;tibble [9,678 x 12]&gt;
+## 5 &lt;split [38.7K/9.7K]&gt; Fold5 &lt;tibble [38,713 x 12]&gt; &lt;tibble [9,678 x 12]&gt;</code></pre>
+<p>This builds the model to predict house sale price.</p>
+<pre class="r"><code>#build model using the train data for each fold of the cross validation
+cv_models_lm &lt;- cv_data %&gt;% 
+  mutate(model = map(train, ~lm(formula = saleprice_asmt_log10 ~ ., data = .x)))
+cv_models_lm</code></pre>
+<pre><code>## #  5-fold cross-validation 
+## # A tibble: 5 x 5
+##   splits             id    train                validate            model  
+## * &lt;list&gt;             &lt;chr&gt; &lt;list&gt;               &lt;list&gt;              &lt;list&gt; 
+## 1 &lt;split [38.7K/9.7~ Fold1 &lt;tibble [38,712 x 1~ &lt;tibble [9,679 x 1~ &lt;S3: l~
+## 2 &lt;split [38.7K/9.7~ Fold2 &lt;tibble [38,713 x 1~ &lt;tibble [9,678 x 1~ &lt;S3: l~
+## 3 &lt;split [38.7K/9.7~ Fold3 &lt;tibble [38,713 x 1~ &lt;tibble [9,678 x 1~ &lt;S3: l~
+## 4 &lt;split [38.7K/9.7~ Fold4 &lt;tibble [38,713 x 1~ &lt;tibble [9,678 x 1~ &lt;S3: l~
+## 5 &lt;split [38.7K/9.7~ Fold5 &lt;tibble [38,713 x 1~ &lt;tibble [9,678 x 1~ &lt;S3: l~</code></pre>
+<pre class="r"><code>#problem with factors split across training/validation
+#https://stats.stackexchange.com/questions/235764/new-factors-levels-not-present-in-training-data</code></pre>
+<p>This is where I begin to calculate metrics to judge how well my model is doing.</p>
+<pre class="r"><code>cv_prep_lm &lt;- cv_models_lm %&gt;% 
+  mutate(
+    #extract actual sale price for the records in the validate dataframes
+    validate_actual = map(validate, ~.x$saleprice_asmt_log10),
+    #predict response variable for each validate set using its corresponding model
+    validate_predicted = map2(.x = model, .y = validate, ~predict(.x, .y))
+  )
+
+#View data
+cv_prep_lm</code></pre>
+<pre><code>## #  5-fold cross-validation 
+## # A tibble: 5 x 7
+##   splits   id    train    validate   model validate_actual validate_predic~
+## * &lt;list&gt;   &lt;chr&gt; &lt;list&gt;   &lt;list&gt;     &lt;lis&gt; &lt;list&gt;          &lt;list&gt;          
+## 1 &lt;split ~ Fold1 &lt;tibble~ &lt;tibble [~ &lt;S3:~ &lt;dbl [9,679]&gt;   &lt;dbl [9,679]&gt;   
+## 2 &lt;split ~ Fold2 &lt;tibble~ &lt;tibble [~ &lt;S3:~ &lt;dbl [9,678]&gt;   &lt;dbl [9,678]&gt;   
+## 3 &lt;split ~ Fold3 &lt;tibble~ &lt;tibble [~ &lt;S3:~ &lt;dbl [9,678]&gt;   &lt;dbl [9,678]&gt;   
+## 4 &lt;split ~ Fold4 &lt;tibble~ &lt;tibble [~ &lt;S3:~ &lt;dbl [9,678]&gt;   &lt;dbl [9,678]&gt;   
+## 5 &lt;split ~ Fold5 &lt;tibble~ &lt;tibble [~ &lt;S3:~ &lt;dbl [9,678]&gt;   &lt;dbl [9,678]&gt;</code></pre>
+<pre class="r"><code>#calculate fit metrics for each validate fold       
+cv_eval_lm &lt;- cv_prep_lm %&gt;% 
+  mutate(validate_rmse = map2_dbl(model, validate, modelr::rmse),
+         validate_mae = map2_dbl(model, validate, modelr::mae))
+
+cv_eval_lm &lt;- cv_eval_lm %&gt;% 
+  mutate(fit = map(model, ~glance(.x))) %&gt;% 
+  unnest(fit)</code></pre>
+<pre class="r"><code>#view data
+cv_eval_lm %&gt;% 
+  select(id, validate_mae, validate_rmse, adj.r.squared)</code></pre>
+<pre><code>## # A tibble: 5 x 4
+##   id    validate_mae validate_rmse adj.r.squared
+##   &lt;chr&gt;        &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
+## 1 Fold1        0.295         0.405         0.449
+## 2 Fold2        0.299         0.409         0.448
+## 3 Fold3        0.297         0.409         0.448
+## 4 Fold4        0.297         0.408         0.446
+## 5 Fold5        0.294         0.403         0.448</code></pre>
+<p>Finally, this calculates how well the model did on the validation set.</p>
+<pre class="r"><code>#summarize fit metrics
+cv_eval_lm %&gt;% 
+  select(validate_mae, validate_rmse, adj.r.squared) %&gt;% 
+  summarize_all(mean)</code></pre>
+<pre><code>## # A tibble: 1 x 3
+##   validate_mae validate_rmse adj.r.squared
+##          &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
+## 1        0.296         0.407         0.448</code></pre>
+<p>Next, I apply the model to the testing data to see how the model does out-of-sample.</p>
+<pre class="r"><code>#create dfs for train_data_small and validate_data
+train_data_small &lt;- cv_prep_lm %&gt;% 
+  unnest(train) %&gt;% 
+  select(-id)
+
+validate_data &lt;- cv_prep_lm %&gt;% 
+  unnest(validate)</code></pre>
+<pre class="r"><code>#create model object
+model &lt;- lm(saleprice_asmt_log10 ~ ., data = train_data_small)
+
+#tidy model
+tidy_train_small &lt;- tidy(model) %&gt;% 
+  arrange(-estimate)
+
+#10th ward is the base factor for muni_desc term
+tidy_train_small %&gt;% 
+  filter(str_detect(term, &quot;10th&quot;))</code></pre>
+<pre><code>## # A tibble: 0 x 5
+## # ... with 5 variables: term &lt;chr&gt;, estimate &lt;dbl&gt;, std.error &lt;dbl&gt;,
+## #   statistic &lt;dbl&gt;, p.value &lt;dbl&gt;</code></pre>
+<p>This shows the impact each term of the model has on the response variable. This is for the training data.</p>
+<pre class="r"><code>#visualize estimates for terms
+tidy_train_small %&gt;% 
+  filter(term != &quot;(Intercept)&quot;) %&gt;% 
+  mutate(term = fct_reorder(term, estimate)) %&gt;% 
+  ggplot(aes(term, estimate)) +
+  geom_hline(yintercept = 0, linetype = 2, color = &quot;red&quot;) +
+  geom_point() +
+  coord_flip()</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-12-1.png" width="576" /></p>
+<p>This creates the augmented dataframe and plots the actual price vs. the fitted price.</p>
+<pre class="r"><code>#visualize model on validate data
+augment_validate &lt;- augment(model, newdata = validate_data) %&gt;% 
+  mutate(.resid = saleprice_asmt_log10 - .fitted)
+
+#actual vs. fitted
+cv_prep_lm %&gt;% 
+  unnest(validate_actual, validate_predicted) %&gt;% 
+  ggplot(aes(validate_actual, validate_predicted)) +
+  geom_abline() +
+  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
+  geom_smooth(method = &quot;lm&quot;) +
+  scale_x_continuous(limits = c(2, 7)) +
+  scale_y_continuous(limits = c(2, 7)) +
+  coord_equal() +
+  scale_fill_viridis_c()</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<p>This distribution shows that the model overestimates the prices on many houses.</p>
+<pre class="r"><code>#distribution of residuals
+augment_validate %&gt;% 
+  ggplot(aes(.resid)) +
+  geom_density() +
+  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2)</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p>This shows that the residuals are correlated with the actual price, which indicates that the model is failing to account for some dynamic in the sale process.</p>
+<pre class="r"><code>#sale price vs. residuals
+augment_validate %&gt;% 
+  ggplot(aes(.resid, saleprice_asmt_log10)) +
+  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
+  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2) +
+  scale_fill_viridis_c()</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p>This calculates how well the model predicted sale price on out-of-sample testing data.</p>
+<pre class="r"><code>#calculate fit of model on test data
+rmse(model, testing_data)</code></pre>
+<pre><code>## [1] 0.40069</code></pre>
+<pre class="r"><code>mae(model, testing_data)</code></pre>
+<pre><code>## [1] 0.29337</code></pre>
+<pre class="r"><code>rsquare(model, testing_data)</code></pre>
+<pre><code>## [1] 0.44923</code></pre>
+<p>These plots show how the model performed against the testing data.</p>
+<pre class="r"><code>#visualize model on test data
+test_augment &lt;- augment(model, newdata = testing_data)
+
+#actual vs. fitted
+test_augment %&gt;% 
+  ggplot(aes(saleprice_asmt_log10, .fitted)) +
+  geom_abline() +
+  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
+  geom_smooth(method = &quot;lm&quot;) +
+  scale_x_continuous(limits = c(2, 7)) +
+  scale_y_continuous(limits = c(2, 7)) +
+  coord_equal() +
+  scale_fill_viridis_c()</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<pre class="r"><code>#distribution of residuals
+test_augment %&gt;% 
+  mutate(.resid = saleprice_asmt_log10 - .fitted) %&gt;% 
+  ggplot(aes(.resid)) +
+  geom_density() +
+  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2)</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
+<pre class="r"><code>#sale price vs. residuals
+test_augment %&gt;% 
+  mutate(.resid = saleprice_asmt_log10 - .fitted) %&gt;% 
+  ggplot(aes(.resid, saleprice_asmt_log10)) +
+  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
+  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2) +
+  scale_fill_viridis_c()</code></pre>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
