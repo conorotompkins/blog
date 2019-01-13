@@ -109,6 +109,20 @@ glimpse(df)</code></pre>
 ## $ fullbaths_asmt                &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1,...
 ## $ halfbaths_asmt                &lt;dbl&gt; 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,...
 ## $ saleprice_asmt_log10          &lt;dbl&gt; 4.6128, 4.9149, 5.6314, 4.1761, ...</code></pre>
+<p>As shown in the data above, the model uses the following features to predict sale price:</p>
+<ul>
+<li>municipality name</li>
+<li>primary use of the parcel</li>
+<li>style of building</li>
+<li>condition of the structure</li>
+<li>grade of construction</li>
+<li>living area in square feet</li>
+<li>lot area in square feet</li>
+<li>year the house was built</li>
+<li>number of bedrooms</li>
+<li>number of full baths</li>
+<li>number of half-baths</li>
+</ul>
 <p>This code sets up the data for cross validation.</p>
 <pre class="r"><code>#create initial split object
 df_split &lt;- initial_split(df, prop = .75)
@@ -199,11 +213,11 @@ cv_eval_lm %&gt;%
 <pre><code>## # A tibble: 5 x 4
 ##   id    validate_mae validate_rmse adj.r.squared
 ##   &lt;chr&gt;        &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
-## 1 Fold1        0.295         0.405         0.449
-## 2 Fold2        0.299         0.409         0.448
-## 3 Fold3        0.297         0.409         0.448
-## 4 Fold4        0.297         0.408         0.446
-## 5 Fold5        0.294         0.403         0.448</code></pre>
+## 1 Fold1        0.297         0.409         0.447
+## 2 Fold2        0.292         0.400         0.446
+## 3 Fold3        0.297         0.412         0.449
+## 4 Fold4        0.299         0.406         0.450
+## 5 Fold5        0.291         0.397         0.446</code></pre>
 <p>Finally, this calculates how well the model did on the validation set.</p>
 <pre class="r"><code>#summarize fit metrics
 cv_eval_lm %&gt;% 
@@ -212,7 +226,7 @@ cv_eval_lm %&gt;%
 <pre><code>## # A tibble: 1 x 3
 ##   validate_mae validate_rmse adj.r.squared
 ##          &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
-## 1        0.296         0.407         0.448</code></pre>
+## 1        0.295         0.405         0.448</code></pre>
 <p>Next, I apply the model to the testing data to see how the model does out-of-sample.</p>
 <pre class="r"><code>#create dfs for train_data_small and validate_data
 train_data_small &lt;- cv_prep_lm %&gt;% 
@@ -279,11 +293,11 @@ augment_validate %&gt;%
 <p>This calculates how well the model predicted sale price on out-of-sample testing data.</p>
 <pre class="r"><code>#calculate fit of model on test data
 rmse(model, testing_data)</code></pre>
-<pre><code>## [1] 0.40069</code></pre>
+<pre><code>## [1] 0.40689</code></pre>
 <pre class="r"><code>mae(model, testing_data)</code></pre>
-<pre><code>## [1] 0.29337</code></pre>
+<pre><code>## [1] 0.29679</code></pre>
 <pre class="r"><code>rsquare(model, testing_data)</code></pre>
-<pre><code>## [1] 0.44923</code></pre>
+<pre><code>## [1] 0.44955</code></pre>
 <p>These plots show how the model performed against the testing data.</p>
 <pre class="r"><code>#visualize model on test data
 test_augment &lt;- augment(model, newdata = testing_data)

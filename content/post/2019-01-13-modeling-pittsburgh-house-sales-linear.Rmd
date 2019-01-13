@@ -103,6 +103,20 @@ df <- df %>%
 #view data
 glimpse(df)
 ```
+As shown in the data above, the model uses the following features to predict sale price:
+
+* municipality name
+* primary use of the parcel
+* style of building
+* condition of the structure
+* grade of construction
+* living area in square feet
+* lot area in square feet
+* year the house was built
+* number of bedrooms
+* number of full baths
+* number of half-baths
+
 This code sets up the data for cross validation.
 ```{r}
 #create initial split object
