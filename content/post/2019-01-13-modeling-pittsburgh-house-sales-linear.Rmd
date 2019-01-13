@@ -163,11 +163,15 @@ cv_prep_lm
 cv_eval_lm <- cv_prep_lm %>% 
   mutate(validate_rmse = map2_dbl(model, validate, modelr::rmse),
          validate_mae = map2_dbl(model, validate, modelr::mae))
+
+cv_eval_lm <- cv_eval_lm %>% 
+  mutate(fit = map(model, ~glance(.x))) %>% 
+  unnest(fit)
 ```
 ```{r}
 #view data
 cv_eval_lm %>% 
-  select(id, validate_mae, validate_rmse)
+  select(id, validate_mae, validate_rmse, adj.r.squared)
 ```
 Finally, this calculates how well the model did on the validation set.
 ```{r}
@@ -175,12 +179,6 @@ Finally, this calculates how well the model did on the validation set.
 cv_eval_lm %>% 
   select(validate_mae, validate_rmse, adj.r.squared) %>% 
   summarize_all(mean)
-```
-```{r}
-#glance at statistics for validate data
-cv_prep_lm %>% 
-  mutate(glance_validate = map(model, ~glance(.x))) %>% 
-  unnest(glance_validate)
 ```
 Next, I apply the model to the testing data to see how the model does out-of-sample.
 ```{r}
@@ -211,6 +209,7 @@ tidy_train_small %>%
   filter(term != "(Intercept)") %>% 
   mutate(term = fct_reorder(term, estimate)) %>% 
   ggplot(aes(term, estimate)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "red") +
   geom_point() +
   coord_flip()
 ```
@@ -233,6 +232,7 @@ cv_prep_lm %>%
   coord_equal() +
   scale_fill_viridis_c()
 ```
+
 This distribution shows that the model overestimates the prices on many houses.
 ```{r}
 #distribution of residuals
@@ -241,6 +241,7 @@ augment_validate %>%
   geom_density() +
   geom_vline(xintercept = 0, color = "red", linetype = 2)
 ```
+
 This shows that the residuals are correlated with the actual price, which indicates that the model is failing to account for some dynamic in the sale process.
 ```{r}
 #sale price vs. residuals
@@ -250,6 +251,7 @@ augment_validate %>%
   geom_vline(xintercept = 0, color = "red", linetype = 2) +
   scale_fill_viridis_c()
 ```
+
 This calculates how well the model predicted sale price on out-of-sample testing data.
 ```{r}
 #calculate fit of model on test data
@@ -257,6 +259,7 @@ rmse(model, testing_data)
 mae(model, testing_data)
 rsquare(model, testing_data)
 ```
+
 These plots show how the model performed against the testing data.
 ```{r}
 #visualize model on test data
