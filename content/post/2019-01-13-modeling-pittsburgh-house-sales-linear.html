@@ -213,54 +213,89 @@ cv_eval_lm %&gt;%
 <pre><code>## # A tibble: 5 x 4
 ##   id    validate_mae validate_rmse adj.r.squared
 ##   &lt;chr&gt;        &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
-## 1 Fold1        0.297         0.409         0.447
-## 2 Fold2        0.292         0.400         0.446
-## 3 Fold3        0.297         0.412         0.449
-## 4 Fold4        0.299         0.406         0.450
-## 5 Fold5        0.291         0.397         0.446</code></pre>
+## 1 Fold1        0.296         0.407         0.449
+## 2 Fold2        0.294         0.400         0.445
+## 3 Fold3        0.296         0.404         0.445
+## 4 Fold4        0.297         0.407         0.449
+## 5 Fold5        0.297         0.409         0.446</code></pre>
 <p>Finally, this calculates how well the model did on the validation set.</p>
-<pre class="r"><code>#summarize fit metrics
+<pre class="r"><code>#summarize fit metrics on cross-validated dfs
 cv_eval_lm %&gt;% 
   select(validate_mae, validate_rmse, adj.r.squared) %&gt;% 
   summarize_all(mean)</code></pre>
 <pre><code>## # A tibble: 1 x 3
 ##   validate_mae validate_rmse adj.r.squared
 ##          &lt;dbl&gt;         &lt;dbl&gt;         &lt;dbl&gt;
-## 1        0.295         0.405         0.448</code></pre>
-<p>Next, I apply the model to the testing data to see how the model does out-of-sample.</p>
-<pre class="r"><code>#create dfs for train_data_small and validate_data
-train_data_small &lt;- cv_prep_lm %&gt;% 
+## 1        0.296         0.406         0.447</code></pre>
+<pre class="r"><code>#fit model on full training set
+train_df &lt;- cv_data %&gt;% 
   unnest(train) %&gt;% 
   select(-id)
 
-validate_data &lt;- cv_prep_lm %&gt;% 
-  unnest(validate)</code></pre>
+model_train &lt;- lm(formula = saleprice_asmt_log10 ~ ., data = train_df)
+
+model_train %&gt;% 
+  glance()</code></pre>
+<pre><code>## # A tibble: 1 x 11
+##   r.squared adj.r.squared sigma statistic p.value    df  logLik    AIC
+##       &lt;dbl&gt;         &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+## 1     0.448         0.447 0.405     2239.       0    71 -99661. 1.99e5
+## # ... with 3 more variables: BIC &lt;dbl&gt;, deviance &lt;dbl&gt;, df.residual &lt;int&gt;</code></pre>
+<p>This is the RMSE on the training set</p>
+<pre class="r"><code>#calculate rmse on training set
+rmse(model_train, train_df)</code></pre>
+<pre><code>## [1] 0.40492</code></pre>
 <pre class="r"><code>#create model object
-model &lt;- lm(saleprice_asmt_log10 ~ ., data = train_data_small)
+#model &lt;- lm(saleprice_asmt_log10 ~ ., data = train_data_small)
 
 #tidy model
-tidy_train_small &lt;- tidy(model) %&gt;% 
-  arrange(-estimate)
-
-#10th ward is the base factor for muni_desc term
-tidy_train_small %&gt;% 
+model_train %&gt;% 
+  tidy() %&gt;% 
+  filter(term != &quot;(Intercept)&quot;) %&gt;% 
+  arrange(-estimate)</code></pre>
+<pre><code>## # A tibble: 70 x 5
+##    term                              estimate std.error statistic   p.value
+##    &lt;chr&gt;                                &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+##  1 gradedesc_asmtexcellent - or bet~    0.455   0.0170       26.7 8.60e-157
+##  2 gradedesc_asmtvery good +            0.425   0.0155       27.4 7.21e-165
+##  3 gradedesc_asmtvery good              0.375   0.0133       28.2 1.85e-174
+##  4 gradedesc_asmtgood +                 0.375   0.00840      44.6 0.       
+##  5 gradedesc_asmtgood                   0.369   0.00758      48.7 0.       
+##  6 gradedesc_asmtvery good -            0.336   0.0154       21.8 2.78e-105
+##  7 gradedesc_asmtgood -                 0.290   0.00669      43.4 0.       
+##  8 munidesc_asmt7th Ward                0.268   0.00782      34.3 5.18e-257
+##  9 conditiondesc_asmtEXCELLENT          0.261   0.0212       12.3 1.14e- 34
+## 10 gradedesc_asmtaverage +              0.253   0.00424      59.7 0.       
+## # ... with 60 more rows</code></pre>
+<pre class="r"><code>#10th ward is the base factor for muni_desc term
+model_train %&gt;% 
+  tidy() %&gt;% 
   filter(str_detect(term, &quot;10th&quot;))</code></pre>
 <pre><code>## # A tibble: 0 x 5
 ## # ... with 5 variables: term &lt;chr&gt;, estimate &lt;dbl&gt;, std.error &lt;dbl&gt;,
 ## #   statistic &lt;dbl&gt;, p.value &lt;dbl&gt;</code></pre>
 <p>This shows the impact each term of the model has on the response variable. This is for the training data.</p>
 <pre class="r"><code>#visualize estimates for terms
-tidy_train_small %&gt;% 
+model_train %&gt;% 
+  tidy() %&gt;% 
   filter(term != &quot;(Intercept)&quot;) %&gt;% 
   mutate(term = fct_reorder(term, estimate)) %&gt;% 
   ggplot(aes(term, estimate)) +
   geom_hline(yintercept = 0, linetype = 2, color = &quot;red&quot;) +
   geom_point() +
   coord_flip()</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-12-1.png" width="576" /></p>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-13-1.png" width="576" /></p>
+<p>Next, I apply the model to the testing data to see how the model does out-of-sample.</p>
+<pre class="r"><code>#create dfs for train_data_small and validate_data
+#train_data_small &lt;- cv_prep_lm %&gt;% 
+#  unnest(train) %&gt;% 
+#  select(-id)
+
+validate_df &lt;- cv_prep_lm %&gt;% 
+  unnest(validate)</code></pre>
 <p>This creates the augmented dataframe and plots the actual price vs. the fitted price.</p>
 <pre class="r"><code>#visualize model on validate data
-augment_validate &lt;- augment(model, newdata = validate_data) %&gt;% 
+augment_validate &lt;- augment(model_train, newdata = validate_df) %&gt;% 
   mutate(.resid = saleprice_asmt_log10 - .fitted)
 
 #actual vs. fitted
@@ -274,14 +309,14 @@ cv_prep_lm %&gt;%
   scale_y_continuous(limits = c(2, 7)) +
   coord_equal() +
   scale_fill_viridis_c()</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 <p>This distribution shows that the model overestimates the prices on many houses.</p>
 <pre class="r"><code>#distribution of residuals
 augment_validate %&gt;% 
   ggplot(aes(.resid)) +
   geom_density() +
   geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2)</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
 <p>This shows that the residuals are correlated with the actual price, which indicates that the model is failing to account for some dynamic in the sale process.</p>
 <pre class="r"><code>#sale price vs. residuals
 augment_validate %&gt;% 
@@ -289,42 +324,12 @@ augment_validate %&gt;%
   stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
   geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2) +
   scale_fill_viridis_c()</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
 <p>This calculates how well the model predicted sale price on out-of-sample testing data.</p>
 <pre class="r"><code>#calculate fit of model on test data
-rmse(model, testing_data)</code></pre>
-<pre><code>## [1] 0.40689</code></pre>
-<pre class="r"><code>mae(model, testing_data)</code></pre>
-<pre><code>## [1] 0.29679</code></pre>
-<pre class="r"><code>rsquare(model, testing_data)</code></pre>
-<pre><code>## [1] 0.44955</code></pre>
-<p>These plots show how the model performed against the testing data.</p>
-<pre class="r"><code>#visualize model on test data
-test_augment &lt;- augment(model, newdata = testing_data)
-
-#actual vs. fitted
-test_augment %&gt;% 
-  ggplot(aes(saleprice_asmt_log10, .fitted)) +
-  geom_abline() +
-  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
-  geom_smooth(method = &quot;lm&quot;) +
-  scale_x_continuous(limits = c(2, 7)) +
-  scale_y_continuous(limits = c(2, 7)) +
-  coord_equal() +
-  scale_fill_viridis_c()</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
-<pre class="r"><code>#distribution of residuals
-test_augment %&gt;% 
-  mutate(.resid = saleprice_asmt_log10 - .fitted) %&gt;% 
-  ggplot(aes(.resid)) +
-  geom_density() +
-  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2)</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
-<pre class="r"><code>#sale price vs. residuals
-test_augment %&gt;% 
-  mutate(.resid = saleprice_asmt_log10 - .fitted) %&gt;% 
-  ggplot(aes(.resid, saleprice_asmt_log10)) +
-  stat_density_2d(aes(fill = stat(level)), geom = &quot;polygon&quot;) +
-  geom_vline(xintercept = 0, color = &quot;red&quot;, linetype = 2) +
-  scale_fill_viridis_c()</code></pre>
-<p><img src="/post/2019-01-13-modeling-pittsburgh-house-sales-linear_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+rmse(model_train, validate_df)</code></pre>
+<pre><code>## [1] 0.40492</code></pre>
+<pre class="r"><code>mae(model_train, validate_df)</code></pre>
+<pre><code>## [1] 0.29555</code></pre>
+<pre class="r"><code>rsquare(model_train, validate_df)</code></pre>
+<pre><code>## [1] 0.4475</code></pre>
