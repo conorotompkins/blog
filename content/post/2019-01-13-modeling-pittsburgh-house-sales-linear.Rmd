@@ -189,37 +189,50 @@ cv_eval_lm %>%
 ```
 Finally, this calculates how well the model did on the validation set.
 ```{r}
-#summarize fit metrics
+#summarize fit metrics on cross-validated dfs
 cv_eval_lm %>% 
   select(validate_mae, validate_rmse, adj.r.squared) %>% 
   summarize_all(mean)
 ```
-Next, I apply the model to the testing data to see how the model does out-of-sample.
 ```{r}
-#create dfs for train_data_small and validate_data
-train_data_small <- cv_prep_lm %>% 
+#fit model on full training set
+train_df <- cv_data %>% 
   unnest(train) %>% 
   select(-id)
 
-validate_data <- cv_prep_lm %>% 
-  unnest(validate)
+model_train <- lm(formula = saleprice_asmt_log10 ~ ., data = train_df)
+
+model_train %>% 
+  glance()
 ```
+
+This is the RMSE on the training set
+```{r}
+#calculate rmse on training set
+rmse(model_train, train_df)
+```
+
 ```{r}
 #create model object
-model <- lm(saleprice_asmt_log10 ~ ., data = train_data_small)
+#model <- lm(saleprice_asmt_log10 ~ ., data = train_data_small)
 
 #tidy model
-tidy_train_small <- tidy(model) %>% 
+model_train %>% 
+  tidy() %>% 
+  filter(term != "(Intercept)") %>% 
   arrange(-estimate)
 
 #10th ward is the base factor for muni_desc term
-tidy_train_small %>% 
+model_train %>% 
+  tidy() %>% 
   filter(str_detect(term, "10th"))
 ```
+
 This shows the impact each term of the model has on the response variable. This is for the training data.
 ```{r fig.height=12, fig.width=6}
 #visualize estimates for terms
-tidy_train_small %>% 
+model_train %>% 
+  tidy() %>% 
   filter(term != "(Intercept)") %>% 
   mutate(term = fct_reorder(term, estimate)) %>% 
   ggplot(aes(term, estimate)) +
@@ -228,10 +241,21 @@ tidy_train_small %>%
   coord_flip()
 ```
 
+Next, I apply the model to the testing data to see how the model does out-of-sample.
+```{r}
+#create dfs for train_data_small and validate_data
+#train_data_small <- cv_prep_lm %>% 
+#  unnest(train) %>% 
+#  select(-id)
+
+validate_df <- cv_prep_lm %>% 
+  unnest(validate)
+```
+
 This creates the augmented dataframe and plots the actual price vs. the fitted price.
 ```{r}
 #visualize model on validate data
-augment_validate <- augment(model, newdata = validate_data) %>% 
+augment_validate <- augment(model_train, newdata = validate_df) %>% 
   mutate(.resid = saleprice_asmt_log10 - .fitted)
 
 #actual vs. fitted
@@ -269,41 +293,7 @@ augment_validate %>%
 This calculates how well the model predicted sale price on out-of-sample testing data.
 ```{r}
 #calculate fit of model on test data
-rmse(model, testing_data)
-mae(model, testing_data)
-rsquare(model, testing_data)
-```
-
-These plots show how the model performed against the testing data.
-```{r}
-#visualize model on test data
-test_augment <- augment(model, newdata = testing_data)
-
-#actual vs. fitted
-test_augment %>% 
-  ggplot(aes(saleprice_asmt_log10, .fitted)) +
-  geom_abline() +
-  stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
-  geom_smooth(method = "lm") +
-  scale_x_continuous(limits = c(2, 7)) +
-  scale_y_continuous(limits = c(2, 7)) +
-  coord_equal() +
-  scale_fill_viridis_c()
-```
-```{r}
-#distribution of residuals
-test_augment %>% 
-  mutate(.resid = saleprice_asmt_log10 - .fitted) %>% 
-  ggplot(aes(.resid)) +
-  geom_density() +
-  geom_vline(xintercept = 0, color = "red", linetype = 2)
-```
-```{r}
-#sale price vs. residuals
-test_augment %>% 
-  mutate(.resid = saleprice_asmt_log10 - .fitted) %>% 
-  ggplot(aes(.resid, saleprice_asmt_log10)) +
-  stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
-  geom_vline(xintercept = 0, color = "red", linetype = 2) +
-  scale_fill_viridis_c()
+rmse(model_train, validate_df)
+mae(model_train, validate_df)
+rsquare(model_train, validate_df)
 ```
