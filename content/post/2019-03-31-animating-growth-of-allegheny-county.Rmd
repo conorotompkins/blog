@@ -23,7 +23,7 @@ In this post I will show how to create animated graphs that illustrate the incre
 
 One caveat about the data: it only includes parcels that were sold at some point. If the parcel was not sold, it is not included in this data. For example, a structure that was torn down and replaced **but** was not sold is not included. It is also reasonable to assume that the data quality decreases the older the records are. There may be a large amount of missing data.
 
-The shapefiles for the data come from [Pennsylvania Spatial Data Access](http://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=1214).
+The shapefiles for the parcels come from [Pennsylvania Spatial Data Access](http://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=1214).
 
 The data about the construction dates comes from the [WPRDC's](http://www.wprdc.org/) [Parcels n'at](http://tools.wprdc.org/parcels-n-at/#) dashboard. To get the relevant data, draw a box around entire county, select the "Year Built" field in the Property Assessments section, and then download the data. It will take a while to download data for the entire county.
 
@@ -44,7 +44,7 @@ theme_set(theme_bw())
 my_caption <- "@conor_tompkins - data from @WPRDC"
 ```
 
-This reads in data about the land parcel:
+This reads in data about the land parcel (lot lines):
 ```{r}
 df <- read_csv("parcel_data_allegheny_county.csv", progress = FALSE) %>% 
   clean_names() %>% 
@@ -58,7 +58,7 @@ file
 shapefile <- st_read(file)
 ```
 
-Next we have to clean up the shapefile geometry:
+Next we have to clean up the parcel geometry:
 ```{r}
 shapefile <- shapefile %>% 
   st_make_valid() %>% 
@@ -66,7 +66,7 @@ shapefile <- shapefile %>%
   mutate(pin = as.character(pin))
 ```
 
-Then, join the shapefiles geometry and parcel data:
+Then, join the parcel geometry and parcel data:
 ```{r}
 parcel_data <- shapefile %>% 
   left_join(df)
