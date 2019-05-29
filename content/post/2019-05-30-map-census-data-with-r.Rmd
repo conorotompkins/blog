@@ -1,7 +1,7 @@
 ---
 title: Map Census Data with R!
 author: Conor Tompkins
-date: '2019-05-30'
+date: '2019-05-28'
 slug: map-census-data-with-r
 categories: []
 tags: []
