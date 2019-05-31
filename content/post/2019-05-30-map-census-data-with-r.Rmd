@@ -12,6 +12,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE)
 ```
+
+This talk was presented on May 30th, 2019 at [Code For Pittsburgh](https://www.meetup.com/codeforpgh/).
+
 Before we dive in, this presentation assumes that the user has basic familiarity with `tidyverse`, mainly `dplyr`. Knowing how to use `%>%` will be very helpful.
 
 How to install packages:
@@ -66,7 +69,7 @@ Data
 
 ### {sf}
 
-[simple features](https://r-spatial.github.io/sf/articles/sf1.html) makes it easy to work with polygon data in R. It uses familiar the `tidyverse` framework: everything is a tibble, and it uses `%>%`.
+[simple features](https://r-spatial.github.io/sf/articles/sf1.html) makes it easy to work with polygon data in R. It uses the familiar `tidyverse` framework: everything is a tibble, and it uses `%>%`.
 
 `ggplot2::geom_sf()` makes it easy to plot `sf` polygons.
 
@@ -217,7 +220,7 @@ city_pgh <- st_read("data/Pittsburgh_City_Boundary/Pittsburgh_City_Boundary.shp"
 allegheny_tracts %>% 
   ggplot() +
     geom_sf(aes(fill = pct), color = NA) +
-    geom_sf(data = city_pgh, color = "white", line_type = 2, size = 1, alpha = 0) +
+    geom_sf(data = city_pgh, color = "white", linetype = 2, size = 1, alpha = 0) +
     facet_wrap(~variable) + 
     scale_fill_viridis_c()
 ```
@@ -253,7 +256,7 @@ wards %>%
 ```
 
 Calculate the center of each ward. We will use this to label the wards on the map:
-```{r echo=FALSE}
+```{r}
 ward_labels <- wards %>% 
   st_centroid() %>% 
   st_coordinates() %>% 
