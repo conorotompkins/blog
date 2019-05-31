@@ -10,6 +10,7 @@ tags: []
 <script src="/rmarkdown-libs/kePrint/kePrint.js"></script>
 
 
+<p>This talk was presented on May 30th, 2019 at <a href="https://www.meetup.com/codeforpgh/">Code For Pittsburgh</a>.</p>
 <p>Before we dive in, this presentation assumes that the user has basic familiarity with <code>tidyverse</code>, mainly <code>dplyr</code>. Knowing how to use <code>%&gt;%</code> will be very helpful.</p>
 <p>How to install packages:</p>
 <pre class="r"><code>install.packages(&quot;package_name&quot;)</code></pre>
@@ -53,7 +54,7 @@ options(tigris_use_cache = TRUE,
 </div>
 <div id="sf" class="section level3">
 <h3>{sf}</h3>
-<p><a href="https://r-spatial.github.io/sf/articles/sf1.html">simple features</a> makes it easy to work with polygon data in R. It uses familiar the <code>tidyverse</code> framework: everything is a tibble, and it uses <code>%&gt;%</code>.</p>
+<p><a href="https://r-spatial.github.io/sf/articles/sf1.html">simple features</a> makes it easy to work with polygon data in R. It uses the familiar <code>tidyverse</code> framework: everything is a tibble, and it uses <code>%&gt;%</code>.</p>
 <p><code>ggplot2::geom_sf()</code> makes it easy to plot <code>sf</code> polygons.</p>
 <p><code>sf</code> can also do spatial calculations such as <code>st_contains</code>, <code>st_intersects</code>, and <code>st_boundary</code>.</p>
 </div>
@@ -209,7 +210,7 @@ allegheny_tracts &lt;- get_decennial(geography = &quot;tract&quot;, variables = 
 <pre class="r"><code>allegheny_tracts %&gt;% 
   ggplot() +
     geom_sf(aes(fill = pct), color = NA) +
-    geom_sf(data = city_pgh, color = &quot;white&quot;, line_type = 2, size = 1, alpha = 0) +
+    geom_sf(data = city_pgh, color = &quot;white&quot;, linetype = 2, size = 1, alpha = 0) +
     facet_wrap(~variable) + 
     scale_fill_viridis_c()</code></pre>
 <p><img src="/post/2019-05-30-map-census-data-with-r_files/figure-html/unnamed-chunk-20-1.png" width="672" /></p>
@@ -581,6 +582,11 @@ North Oakland
   geom_sf()</code></pre>
 <p><img src="/post/2019-05-30-map-census-data-with-r_files/figure-html/unnamed-chunk-25-1.png" width="672" /></p>
 <p>Calculate the center of each ward. We will use this to label the wards on the map:</p>
+<pre class="r"><code>ward_labels &lt;- wards %&gt;% 
+  st_centroid() %&gt;% 
+  st_coordinates() %&gt;% 
+  as_tibble() %&gt;% 
+  clean_names()</code></pre>
 <table class="table" style="margin-left: auto; margin-right: auto;">
 <thead>
 <tr>
@@ -650,16 +656,16 @@ y
 ## proj4string:    +proj=longlat +datum=WGS84 +no_defs
 ## First 10 features:
 ##    objectid wards wards_id ward wardtext shape_are shape_len     n
-## 1         2     3        0   19       19 0.0011446    0.2389 27093
-## 2         3     4        0   24       24 0.0001901    0.0734  5303
-## 3         4     5        0   24       24 0.0000210    0.0274  5303
-## 4         5     6        0   20       20 0.0011755    0.2888 17236
-## 5         6     7        0   21       21 0.0002074    0.0619  3800
-## 6         7     8        0   23       23 0.0001031    0.0480  4993
-## 7         8     9        0   22       22 0.0001967    0.0593  4599
-## 8         9    10        0   26       26 0.0009079    0.1915 10963
-## 9        10    11        0   27       27 0.0005849    0.1173 10079
-## 10       11    12        0   27       27 0.0000634    0.0400 10079
+## 1         2     3        0   19       19 0.0011446    0.2389 27136
+## 2         3     4        0   24       24 0.0001901    0.0734  5311
+## 3         4     5        0   24       24 0.0000210    0.0274  5311
+## 4         5     6        0   20       20 0.0011755    0.2888 17263
+## 5         6     7        0   21       21 0.0002074    0.0619  3801
+## 6         7     8        0   23       23 0.0001031    0.0480  4996
+## 7         8     9        0   22       22 0.0001967    0.0593  4606
+## 8         9    10        0   26       26 0.0009079    0.1915 10984
+## 9        10    11        0   27       27 0.0005849    0.1173 10101
+## 10       11    12        0   27       27 0.0000634    0.0400 10101
 ##                          geometry   x    y
 ## 1  POLYGON ((-80 40.4, -80 40.... -80 40.4
 ## 2  POLYGON ((-80 40.5, -80 40.... -80 40.5
