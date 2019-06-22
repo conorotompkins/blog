@@ -166,12 +166,21 @@ options(scipen = 999)</code></pre>
 ##   &lt;lgl&gt;                 &lt;dbl&gt;    &lt;dbl&gt;
 ## 1 FALSE            335471796.    0.435
 ## 2 TRUE             435363597.    0.565</code></pre>
-<p>This creates a map of the zones, fills them by <code>type</code>, and overlays it on a GoogleMaps basemap:</p>
+<p>This creates a map of the zones, fills them by <code>type</code>, and overlays it on a GoogleMaps basemap. I also insert the boundaries of the City of Pittsburgh.</p>
+<pre class="r"><code>city_boundary &lt;- st_read(&quot;data/Pittsburgh_City_Boundary/Pittsburgh_City_Boundary.shp&quot;)</code></pre>
+<pre><code>## Reading layer `Pittsburgh_City_Boundary&#39; from data source `C:\Users\Conor\Documents\github\blog\content\post\data\Pittsburgh_City_Boundary\Pittsburgh_City_Boundary.shp&#39; using driver `ESRI Shapefile&#39;
+## Simple feature collection with 8 features and 6 fields
+## geometry type:  POLYGON
+## dimension:      XY
+## bbox:           xmin: -80.09534 ymin: 40.36161 xmax: -79.86577 ymax: 40.50097
+## epsg (SRID):    4326
+## proj4string:    +proj=longlat +datum=WGS84 +no_defs</code></pre>
 <pre class="r"><code>#register_google(key = &quot;your key here&quot;)
 pgh_map &lt;- get_map(location = &quot;The Hill, Pittsburgh, PA&quot;, zoom = 12, maptype = &quot;roadmap&quot;, source = &quot;google&quot;)
 
 ggmap(pgh_map) +
   geom_sf(data = df %&gt;% filter(type != &quot;Other non-residential&quot;), aes(fill = type), inherit.aes = FALSE, size = .5, alpha = 1, color = NA) +
+  geom_sf(data = city_boundary, inherit.aes = FALSE, alpha = 0, size = 2) +
   coord_sf(crs = st_crs(4326)) +
   scale_fill_manual(&quot;Zone type&quot;,
                       values = c(&quot;#ea60b9&quot;, &quot;#4cafc5&quot;, &quot;yellow&quot;, &quot;light grey&quot;)) +

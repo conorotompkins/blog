@@ -131,13 +131,16 @@ df %>%
   mutate(pct_area = zone_area / sum(zone_area))
 ```
 
-This creates a map of the zones, fills them by `type`, and overlays it on a GoogleMaps basemap:
+This creates a map of the zones, fills them by `type`, and overlays it on a GoogleMaps basemap. I also insert the boundaries of the City of Pittsburgh.
 ```{r fig.height=12, fig.width=12}
+city_boundary <- st_read("data/Pittsburgh_City_Boundary/Pittsburgh_City_Boundary.shp")
+
 #register_google(key = "your key here")
 pgh_map <- get_map(location = "The Hill, Pittsburgh, PA", zoom = 12, maptype = "roadmap", source = "google")
 
 ggmap(pgh_map) +
   geom_sf(data = df %>% filter(type != "Other non-residential"), aes(fill = type), inherit.aes = FALSE, size = .5, alpha = 1, color = NA) +
+  geom_sf(data = city_boundary, inherit.aes = FALSE, alpha = 0, size = 2) +
   coord_sf(crs = st_crs(4326)) +
   scale_fill_manual("Zone type",
                       values = c("#ea60b9", "#4cafc5", "yellow", "light grey")) +
