@@ -76,7 +76,7 @@ df_zones
 ```
 
 Create a basic bar chart to show the distribution of `type`:
-```{r}
+```{r fig.height=4, fig.width=9}
 df %>% 
   st_drop_geometry() %>% 
   group_by(type, residential) %>% 
@@ -94,7 +94,7 @@ df %>%
 ```
 
 Use a bar chart to show the distribution of `full_zonin`:
-```{r}
+```{r fig.height=4, fig.width=9}
 df %>% 
   st_drop_geometry() %>% 
   group_by(full_zonin, residential) %>% 
