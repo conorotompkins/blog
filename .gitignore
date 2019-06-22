@@ -6,3 +6,4 @@ blogdown
 public
 *.csv
 shapefiles/
+data/
