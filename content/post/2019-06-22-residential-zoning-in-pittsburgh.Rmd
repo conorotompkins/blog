@@ -94,7 +94,7 @@ df %>%
 ```
 
 Use a bar chart to show the distribution of `full_zonin`:
-```{r fig.height=4, fig.width=9}
+```{r fig.height=9, fig.width=9}
 df %>% 
   st_drop_geometry() %>% 
   group_by(full_zonin, residential) %>% 
