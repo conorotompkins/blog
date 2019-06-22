@@ -132,7 +132,7 @@ df %>%
 ```
 
 This creates a map of the zones, fills them by `type`, and overlays it on a GoogleMaps basemap:
-```{r}
+```{r fig.height=12, fig.width=12}
 #register_google(key = "your key here")
 pgh_map <- get_map(location = "The Hill, Pittsburgh, PA", zoom = 12, maptype = "roadmap", source = "google")
 
