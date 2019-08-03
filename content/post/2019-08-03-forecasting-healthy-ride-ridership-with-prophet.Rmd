@@ -1,0 +1,12 @@
+---
+title: Forecasting Healthy Ride ridership with prophet
+author: Conor Tompkins
+date: '2019-08-03'
+slug: forecasting-healthy-ride-ridership-with-prophet
+categories:
+  - Pittsburgh
+  - R
+tags:
+  - Pittsburgh
+  - Healthy Ride
+---
