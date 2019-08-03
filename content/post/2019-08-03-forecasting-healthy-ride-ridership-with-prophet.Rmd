@@ -137,7 +137,7 @@ prophet_plot_components(m, forecast) +
 ```
 
 We can of course use `ggplot` to manually plot the data.
-```{r}
+```{r fig.height=6, fig.width=12}
 df_aug <- forecast %>% 
   mutate(ds = ymd(ds)) %>% 
   left_join(df)
