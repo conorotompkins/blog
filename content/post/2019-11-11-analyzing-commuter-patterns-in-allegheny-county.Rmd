@@ -11,7 +11,11 @@ tags:
   - Census
 ---
 
-In this post I will use networks plots to analyze patterns of commuters in Allegheny County. I use the LEHD Origin-Destination Employment Statistics (LODES) (dataset)[https://lehd.ces.census.gov/data/] provided by the U.S. Census Bureau. This dataset contains summarized and anonymized estimate data regarding where people live and work. I use this data to map where Allegheny County residents live and work.
+Note: high-res images of the main graphs from this post are available ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p1.png), ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p2.png), ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p3.png), and ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p4.png).
+
+###
+
+In this post I will use networks plots to analyze patterns of commuters in Allegheny County. I use the LEHD Origin-Destination Employment Statistics (LODES) [dataset](https://lehd.ces.census.gov/data/) provided by the U.S. Census Bureau. This dataset contains summarized and anonymized estimate data regarding where people live and work. I use this data to map where Allegheny County residents live and work.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
