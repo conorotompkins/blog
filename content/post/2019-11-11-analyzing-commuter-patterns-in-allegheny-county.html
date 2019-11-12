@@ -38,18 +38,7 @@ st_erase &lt;- function(x, y) {
   st_difference(x, st_union(st_combine(y)))
 }
 
-rivers &lt;- area_water(&quot;PA&quot;, &quot;Allegheny&quot;, class = &quot;sf&quot;)
-
-#rivers %&gt;% 
-#  ggplot() +
-#   geom_sf(fill = &quot;white&quot;) +
-#    theme(panel.background = element_rect(fill = &quot;black&quot;))
-
-#st_difference(allegheny_tracts, rivers) %&gt;% 
-#  ggplot() +
-#    geom_sf(fill = &quot;black&quot;)
-
-#allegheny_tracts &lt;- st_erase(allegheny_water, allegheny_tracts)</code></pre>
+rivers &lt;- area_water(&quot;PA&quot;, &quot;Allegheny&quot;, class = &quot;sf&quot;)</code></pre>
 <p>This shows the outlines of the tracts used in the analysis.</p>
 <pre class="r"><code>allegheny_tracts %&gt;% 
   ggplot() +

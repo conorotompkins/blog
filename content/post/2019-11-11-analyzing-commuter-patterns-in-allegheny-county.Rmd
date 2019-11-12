@@ -53,18 +53,6 @@ st_erase <- function(x, y) {
 }
 
 rivers <- area_water("PA", "Allegheny", class = "sf")
-
-#rivers %>% 
-#  ggplot() +
-#   geom_sf(fill = "white") +
-#    theme(panel.background = element_rect(fill = "black"))
-
-#st_difference(allegheny_tracts, rivers) %>% 
-#  ggplot() +
-#    geom_sf(fill = "black")
-
-#allegheny_tracts <- st_erase(allegheny_water, allegheny_tracts)
-
 ```
 
 This shows the outlines of the tracts used in the analysis.
