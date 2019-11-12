@@ -11,7 +11,7 @@ tags:
   - Census
 ---
 
-Note: high-res images of the main graphs from this post are available ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p1.png), ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p2.png), ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p3.png), and ![here](/post/2019-11-11-analyzing-commuter-patterns-in-allegheny-county_files/p4.png).
+Note: high-res images of the main graphs from this post are available [here](https://raw.githubusercontent.com/conorotompkins/lodes/master/output/images/p1.png), [here](https://raw.githubusercontent.com/conorotompkins/lodes/master/output/images/p2.png), [here](https://raw.githubusercontent.com/conorotompkins/lodes/master/output/images/p3.png), and [here](https://raw.githubusercontent.com/conorotompkins/lodes/master/output/images/p4.png).
 
 ###
 
@@ -267,12 +267,12 @@ manual_layout %>%
 ```
 
 Finally, this sets the parameters for the plot and makes the network graph:
-```{r}
+```{r fig.height=12, fig.width=12}
 legend_title <- str_c("Minimum: ", minimum_commuters, " commuters")
 
 ggraph(manual_layout) +
   geom_sf(data = allegheny_tracts, color = "dark grey", fill = NA) +
-  geom_sf(data = rivers, fill = "white", color = NA) +
+  geom_sf(data = rivers, fill = "white", color = NA, alpha = .5) +
   geom_node_point(alpha = 0) +
   geom_edge_fan(aes(edge_width = commuters, 
                     edge_alpha = commuters),
@@ -332,12 +332,12 @@ manual_layout_filtered <- create_layout(graph = g_filtered,
                                         layout = node_pos)
 ```
 
-```{r}
+```{r fig.height=12, fig.width=12}
 legend_title <- str_c("Minimum: ", minimum_commuters, " commuters")
 
 ggraph(manual_layout_filtered) +
   geom_sf(data = allegheny_tracts, size = .1, fill = NA, color = "dark grey") +
-  geom_sf(data = rivers, fill = "white", color = NA) +
+  geom_sf(data = rivers, fill = "white", color = NA, alpha = .5) +
   geom_edge_fan(aes(edge_width = commuters, edge_alpha = commuters
             ),
             arrow = arrow(length = unit(.5, 'lines')),
@@ -387,12 +387,12 @@ manual_layout_faceted <- create_layout(graph = g_facet,
 manual_layout_faceted %>% 
   as_tibble()
 ```
-```{r}
+```{r fig.height=12, fig.width=12}
 legend_title <- str_c("Minimum: ", minimum_commuters, " commuters")
 
 ggraph(manual_layout_faceted) +
   geom_sf(data = allegheny_tracts, size = .1, fill = NA, color = "dark grey") +
-  geom_sf(data = rivers, fill = "white", color = NA) +
+  geom_sf(data = rivers, fill = "white", color = NA, alpha = .5) +
   geom_edge_fan(aes(edge_width = commuters, edge_alpha = commuters),
             arrow = arrow(length = unit(.5, 'lines')),
             start_cap = circle(.1, 'lines'),
@@ -474,12 +474,12 @@ zoom_y <- manual_layout_filtered %>%
 zoom_magnitude <- .25
 ```
 
-```{r}
+```{r fig.height=12, fig.width=12}
 legend_title <- str_c("Minimum: ", minimum_commuters, " commuters")
 
 ggraph(manual_layout_filtered) +
   geom_sf(data = allegheny_tracts, size = .1, fill = NA) +
-  geom_sf(data = rivers, fill = "white", color = NA) +
+  geom_sf(data = rivers, fill = "white", color = NA, alpha = .5) +
   geom_sf(data = allegheny_tracts %>%  filter(GEOID == filter_tract), 
           fill = "grey") +
   geom_edge_fan(aes(edge_width = commuters),
