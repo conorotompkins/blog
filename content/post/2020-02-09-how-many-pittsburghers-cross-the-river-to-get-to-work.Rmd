@@ -22,14 +22,16 @@ This post focuses on how many rivers Pittsburghers cross to get to work. I use t
 
 ## TLDR
 A plurality of commuters don't cross any rivers, and none cross three.
-![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png){width=400px height=400px}
+![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png){width=80% height=80%}
 
-![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png)
+![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png){width=80% height=80%}
+
 Many commuters in the Golden Triangle and neighborhoods to the east don't cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.
 
 ## Data munging and analysis
 
-I use the "pa_od_aux_JT00_2017.csv" file as shown:![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png)
+I use the "pa_od_aux_JT00_2017.csv" file as shown here:
+![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png){width=80% height=80%}
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
@@ -277,7 +279,7 @@ df_points <- df_points %>%
   left_join(allegheny_lines, by = c("name" = "GEOID")) %>% 
   st_as_sf(coords = c("X", "Y")) %>% 
   group_by(line_id, commuters) %>%
-  summarise() %>% # union points into lines using our created lineid
+  summarise() %>%
   st_cast("POINT") %>% 
   st_set_crs(4326)
 ```
@@ -285,26 +287,6 @@ df_points <- df_points %>%
 ```{r}
 rivers <- rivers %>% 
   st_set_crs(4326)
-```
-
-```{r eval=FALSE, include=FALSE}
-# df_linestrings %>% 
-#   ggplot() +
-#     geom_sf() +
-#     geom_sf(data = df_points, color = "red")
-# 
-# 
-# df_linestrings %>% 
-#   ggplot() +
-#     geom_sf(aes(size = commuters,
-#                 alpha = commuters)) +
-#     geom_sf(data = df_points, color = "red") +
-#     geom_sf(data = rivers,
-#             aes(color = NAME),
-#             size = 3) +
-#     scale_size_continuous(range = c(.1, 1)) +
-#     scale_alpha_continuous(range = c(.1, 1)) +
-#     theme_void()
 ```
 
 Here I calculate which commuter lines intersect with which rivers using `st_intersects`:
@@ -333,10 +315,8 @@ df_commuter_rivers %>%
     geom_sf(data = rivers, 
             aes(color = NAME),
             show.legend = FALSE) +
-    geom_sf(aes(geometry = geometry, 
-                #color = value,
+    geom_sf(aes(geometry = geometry,
                 size = commuters),
-            #alpha = .1,
             show.legend = TRUE) +
     facet_wrap(~river_intersected,
                ncol = 1) +
@@ -387,7 +367,6 @@ df_lines_chloro
 The next few steps are largely just coercing the geometry to do what I want it to do. Interested parties can read the code.
 ```{r}
 df_line_types_chloro <- df_lines_chloro %>% 
-  #select(line_id, point_type, edge_id) %>% 
   pivot_wider(names_from = point_type, values_from = edge_id) %>% 
   mutate(line_type = case_when(from == to ~ "point",
                                from != to ~ "linestring")) %>% 
@@ -424,20 +403,13 @@ df_points_chloro <- df_points_chloro %>%
   left_join(allegheny_lines, by = c("name" = "GEOID")) %>% 
   st_as_sf(coords = c("X", "Y")) %>% 
   group_by(line_id, name, commuters) %>%
-  summarise() %>% # union points into lines using our created lineid
   st_cast("POINT") %>% 
   st_set_crs(4326)
 ```
 
 ```{r}
-#rivers <- rivers %>% 
-#  st_set_crs(4326)
-```
-
-```{r}
 df_linestrings_chloro_intersect <- df_linestrings_chloro %>% 
   ungroup() %>% 
-  #left_join(df_lines_chloro_wide) %>% 
   mutate(intersects_ohio = st_intersects(., rivers %>% 
                                             filter(NAME == "Ohio River")) %>% as.logical(),
          intersects_allegheny = st_intersects(., rivers %>% 
@@ -455,9 +427,7 @@ df_linestrings_chloro_intersect <- df_linestrings_chloro_intersect %>%
                            !is.na(.) ~ .)) %>%
   mutate(no_intersect = case_when(intersects_allegheny == FALSE & intersects_monongahela == FALSE & intersects_ohio == FALSE ~ TRUE,
                                   TRUE ~ FALSE)) %>% 
-  select(line_id, from, 
-         #to, 
-         contains("intersect"), commuters) %>% 
+  select(line_id, from, contains("intersect"), commuters) %>% 
   pivot_longer(contains("intersect"), names_to = "river_intersected", values_to = "value")
 ```
 
@@ -470,9 +440,7 @@ df_linestrings_chloro_intersect <- df_linestrings_chloro_intersect %>%
 ```{r}
 df_linestrings_chloro_intersect <- df_linestrings_chloro_intersect %>% 
   filter(value == TRUE) %>% 
-  group_by(line_id, from, 
-           #to, 
-           commuters) %>% 
+  group_by(line_id, from, commuters) %>% 
   summarize(count_rivers_intersected = sum(river_intersected != "no_intersect")) %>% 
   ungroup()
 ```
@@ -489,22 +457,9 @@ df_points_chloro <- cbind(df_points_chloro, st_coordinates(st_centroid(df_points
 df_combined <- bind_rows(df_linestrings_chloro_intersect, df_points_chloro)
 ```
 
-
 ```{r}
 df_combined <- df_combined %>% 
   arrange(from, desc(count_rivers_intersected), desc(commuters))
-```
-```{r eval=FALSE, include=FALSE}
-df_combined %>% 
-  right_join(allegheny_tracts, by = c("from" = "GEOID")) %>% 
-  ggplot() +
-    geom_sf(aes(geometry = geometry,
-                fill = as.factor(count_rivers_intersected),
-                )) +
-  geom_sf(data = rivers,
-          aes(color = NAME)) +
-  scale_fill_viridis_d() +
-  theme_void()
 ```
 
 These are the final steps to create the chloropleth:

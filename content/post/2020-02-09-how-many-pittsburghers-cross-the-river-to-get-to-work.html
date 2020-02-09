@@ -24,13 +24,14 @@ output:
 <div id="tldr" class="section level2">
 <h2>TLDR</h2>
 <p>A plurality of commuters don’t cross any rivers, and none cross three.
-<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png" /></p>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png" />
-Many commuters in the Golden Triangle and neighborhoods to the east don’t cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.</p>
+<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png" style="width:80.0%;height:80.0%" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png" style="width:80.0%;height:80.0%" /></p>
+<p>Many commuters in the Golden Triangle and neighborhoods to the east don’t cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.</p>
 </div>
 <div id="data-munging-and-analysis" class="section level2">
 <h2>Data munging and analysis</h2>
-<p>I use the “pa_od_aux_JT00_2017.csv” file as shown:<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png" /></p>
+<p>I use the “pa_od_aux_JT00_2017.csv” file as shown here:
+<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png" style="width:80.0%;height:80.0%" /></p>
 <p>In my analysis I use many of the standard <code>{tidyverse}</code> packages, <code>{sf}</code>, <code>{tidycensus}</code>, <code>{tidygraph}</code>, and <code>{ggraph}</code>:</p>
 <pre class="r"><code>library(tidyverse)
 library(vroom)
@@ -351,7 +352,7 @@ df_points &lt;- df_points %&gt;%
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;)) %&gt;% 
   st_as_sf(coords = c(&quot;X&quot;, &quot;Y&quot;)) %&gt;% 
   group_by(line_id, commuters) %&gt;%
-  summarise() %&gt;% # union points into lines using our created lineid
+  summarise() %&gt;%
   st_cast(&quot;POINT&quot;) %&gt;% 
   st_set_crs(4326)</code></pre>
 <pre class="r"><code>rivers &lt;- rivers %&gt;% 
@@ -378,10 +379,8 @@ df_commuter_rivers &lt;- df_linestrings_intersect %&gt;%
     geom_sf(data = rivers, 
             aes(color = NAME),
             show.legend = FALSE) +
-    geom_sf(aes(geometry = geometry, 
-                #color = value,
+    geom_sf(aes(geometry = geometry,
                 size = commuters),
-            #alpha = .1,
             show.legend = TRUE) +
     facet_wrap(~river_intersected,
                ncol = 1) +
@@ -389,7 +388,7 @@ df_commuter_rivers &lt;- df_linestrings_intersect %&gt;%
            size = FALSE) +
     theme_graph() +
     scale_size_continuous(range = c(.1, .5))</code></pre>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
 <p>This combines the dataframes with the lines and points, and then summarizes to count how many of the geometries intersected with a river:</p>
 <pre class="r"><code>df_commuter_rivers_summary &lt;- df_commuter_rivers %&gt;% 
   bind_rows(df_points %&gt;% 
@@ -410,7 +409,7 @@ df_commuter_rivers_summary %&gt;%
          y = &quot;Number of commuters&quot;,
          caption = &quot;@conor_tompkins&quot;) +
     theme_bw()</code></pre>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-25-1.png" width="672" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
 <p>It is always reassuring when your analysis doesn’t stray to far from conventional wisdom. Very few Pittsburghers in the dataset cross two rivers to get to work, and none cross three.</p>
 </div>
 <div id="mapping-commuter-patterns" class="section level2">
@@ -438,7 +437,6 @@ df_lines_chloro</code></pre>
 ## # ... with 5,946 more rows</code></pre>
 <p>The next few steps are largely just coercing the geometry to do what I want it to do. Interested parties can read the code.</p>
 <pre class="r"><code>df_line_types_chloro &lt;- df_lines_chloro %&gt;% 
-  #select(line_id, point_type, edge_id) %&gt;% 
   pivot_wider(names_from = point_type, values_from = edge_id) %&gt;% 
   mutate(line_type = case_when(from == to ~ &quot;point&quot;,
                                from != to ~ &quot;linestring&quot;)) %&gt;% 
@@ -469,14 +467,10 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;)) %&gt;% 
   st_as_sf(coords = c(&quot;X&quot;, &quot;Y&quot;)) %&gt;% 
   group_by(line_id, name, commuters) %&gt;%
-  summarise() %&gt;% # union points into lines using our created lineid
   st_cast(&quot;POINT&quot;) %&gt;% 
   st_set_crs(4326)</code></pre>
-<pre class="r"><code>#rivers &lt;- rivers %&gt;% 
-#  st_set_crs(4326)</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro %&gt;% 
   ungroup() %&gt;% 
-  #left_join(df_lines_chloro_wide) %&gt;% 
   mutate(intersects_ohio = st_intersects(., rivers %&gt;% 
                                             filter(NAME == &quot;Ohio River&quot;)) %&gt;% as.logical(),
          intersects_allegheny = st_intersects(., rivers %&gt;% 
@@ -491,18 +485,14 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
                            !is.na(.) ~ .)) %&gt;%
   mutate(no_intersect = case_when(intersects_allegheny == FALSE &amp; intersects_monongahela == FALSE &amp; intersects_ohio == FALSE ~ TRUE,
                                   TRUE ~ FALSE)) %&gt;% 
-  select(line_id, from, 
-         #to, 
-         contains(&quot;intersect&quot;), commuters) %&gt;% 
+  select(line_id, from, contains(&quot;intersect&quot;), commuters) %&gt;% 
   pivot_longer(contains(&quot;intersect&quot;), names_to = &quot;river_intersected&quot;, values_to = &quot;value&quot;)</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro_intersect %&gt;% 
   mutate(commuters = case_when(value == FALSE ~ 0,
                                TRUE ~ commuters))</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro_intersect %&gt;% 
   filter(value == TRUE) %&gt;% 
-  group_by(line_id, from, 
-           #to, 
-           commuters) %&gt;% 
+  group_by(line_id, from, commuters) %&gt;% 
   summarize(count_rivers_intersected = sum(river_intersected != &quot;no_intersect&quot;)) %&gt;% 
   ungroup()</code></pre>
 <pre class="r"><code>df_points_chloro &lt;- cbind(df_points_chloro, st_coordinates(st_centroid(df_points_chloro))) %&gt;% 
@@ -515,7 +505,7 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
   arrange(from, desc(count_rivers_intersected), desc(commuters))</code></pre>
 <p>These are the final steps to create the chloropleth:</p>
 <pre class="r"><code>df_combined</code></pre>
-<pre><code>## # A tibble: 2,978 x 4
+<pre><code>## # A tibble: 3,208 x 4
 ##    line_id from        commuters count_rivers_intersected
 ##      &lt;int&gt; &lt;chr&gt;           &lt;dbl&gt;                    &lt;dbl&gt;
 ##  1     747 42003010300        63                        0
@@ -523,12 +513,12 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
 ##  3    1371 42003020100        42                        1
 ##  4    2290 42003020100        30                        1
 ##  5       1 42003020100       721                        0
-##  6     630 42003020100        70                        0
-##  7     730 42003020100        64                        0
-##  8    1102 42003020100        49                        0
-##  9    1629 42003020100        38                        0
-## 10     349 42003020300       112                        0
-## # ... with 2,968 more rows</code></pre>
+##  6       1 42003020100       721                        0
+##  7     630 42003020100        70                        0
+##  8     730 42003020100        64                        0
+##  9    1102 42003020100        49                        0
+## 10    1629 42003020100        38                        0
+## # ... with 3,198 more rows</code></pre>
 <p>This counts the number of commuters per “from” tract and “count of rivers intersected”. Note that there are multiple rows per “from” tract.</p>
 <pre class="r"><code>df_chloro_map &lt;- df_combined %&gt;%
   ungroup() %&gt;% 
@@ -541,12 +531,12 @@ df_chloro_map</code></pre>
 ##    from        count_rivers_intersected total_commuters
 ##    &lt;chr&gt;                          &lt;dbl&gt;           &lt;dbl&gt;
 ##  1 42003010300                        0              63
-##  2 42003020100                        0             942
+##  2 42003020100                        0            1663
 ##  3 42003020100                        1              72
 ##  4 42003020100                        2              31
-##  5 42003020300                        0             257
+##  5 42003020300                        0             306
 ##  6 42003030500                        0             231
-##  7 42003040200                        0             143
+##  7 42003040200                        0             177
 ##  8 42003040400                        0             108
 ##  9 42003040500                        0              87
 ## 10 42003040600                        0              59
@@ -562,12 +552,12 @@ df_chloro_map</code></pre>
 ##    from        count_rivers_intersected total_commuters pct_of_commuters
 ##    &lt;chr&gt;                          &lt;dbl&gt;           &lt;dbl&gt;            &lt;dbl&gt;
 ##  1 42003010300                        0              63           1     
-##  2 42003020100                        0             942           0.901 
-##  3 42003020100                        1              72           0.0689
-##  4 42003020100                        2              31           0.0297
-##  5 42003020300                        0             257           1     
+##  2 42003020100                        0            1663           0.942 
+##  3 42003020100                        1              72           0.0408
+##  4 42003020100                        2              31           0.0176
+##  5 42003020300                        0             306           1     
 ##  6 42003030500                        0             231           1     
-##  7 42003040200                        0             143           1     
+##  7 42003040200                        0             177           1     
 ##  8 42003040400                        0             108           1     
 ##  9 42003040500                        0              87           1     
 ## 10 42003040600                        0              59           1     
@@ -586,10 +576,10 @@ df_chloro_map</code></pre>
 ##  1 42003010300                        0              63           1     
 ##  2 42003010300                        1               0           0     
 ##  3 42003010300                        2               0           0     
-##  4 42003020100                        0             942           0.901 
-##  5 42003020100                        1              72           0.0689
-##  6 42003020100                        2              31           0.0297
-##  7 42003020300                        0             257           1     
+##  4 42003020100                        0            1663           0.942 
+##  5 42003020100                        1              72           0.0408
+##  6 42003020100                        2              31           0.0176
+##  7 42003020300                        0             306           1     
 ##  8 42003020300                        1               0           0     
 ##  9 42003020300                        2               0           0     
 ## 10 42003030500                        0             231           1     
@@ -603,8 +593,8 @@ glimpse(df_chloro_map)</code></pre>
 ## Variables: 7
 ## $ from                     &lt;chr&gt; &quot;42003010300&quot;, &quot;42003010300&quot;, &quot;42003010300...
 ## $ count_rivers_intersected &lt;dbl&gt; 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, ...
-## $ total_commuters          &lt;dbl&gt; 63, 0, 0, 942, 72, 31, 257, 0, 0, 231, 0, ...
-## $ pct_of_commuters         &lt;dbl&gt; 1.000, 0.000, 0.000, 0.901, 0.069, 0.030, ...
+## $ total_commuters          &lt;dbl&gt; 63, 0, 0, 1663, 72, 31, 306, 0, 0, 231, 0,...
+## $ pct_of_commuters         &lt;dbl&gt; 1.000, 0.000, 0.000, 0.942, 0.041, 0.018, ...
 ## $ NAME                     &lt;chr&gt; &quot;Census Tract 103, Allegheny County, Penns...
 ## $ total_pop                &lt;dbl&gt; 6600, 6600, 6600, 3629, 3629, 3629, 616, 6...
 ## $ geometry                 &lt;MULTIPOLYGON [°]&gt; MULTIPOLYGON (((-80 40, -80.....</code></pre>
@@ -626,7 +616,7 @@ glimpse(df_chloro_map)</code></pre>
          subtitle = &quot;2017 U.S. Census LODES dataset&quot;,
          caption = &quot;@conor_tompkins&quot;) +
     theme_void()</code></pre>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-44-1.png" width="672" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-41-1.png" width="672" /></p>
 <div id="references" class="section level3">
 <h3>References</h3>
 <ul>
