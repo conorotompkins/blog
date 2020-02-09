@@ -23,12 +23,14 @@ output:
 <p>This post focuses on how many rivers Pittsburghers cross to get to work. I use the U.S. Census Bureau LEHD Origin-Destination Employment Statistics (LODES) <a href="https://lehd.ces.census.gov/data/">dataset</a> to draw lines between “home” census tracts and “work” census tracts, and then count how many “commuter lines” intersect with the 3 main rivers in Pittsburgh. This calculation is done in straight lines “as the crow flies”, not accounting for actual road routes.</p>
 <div id="tldr" class="section level2">
 <h2>TLDR</h2>
-<p>A plurality of commuters don’t cross any rivers, and none cross three.</p>
-<p>Many commuters in the Golden Triangle and neighborhoods to the east don’t cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.</p>
+<p>A plurality of commuters don’t cross any rivers, and none cross three.
+<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png" />
+Many commuters in the Golden Triangle and neighborhoods to the east don’t cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.</p>
 </div>
 <div id="data-munging-and-analysis" class="section level2">
 <h2>Data munging and analysis</h2>
-<p>I use the “pa_od_aux_JT00_2017.csv” file as shown</p>
+<p>I use the “pa_od_aux_JT00_2017.csv” file as shown:<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png" /></p>
 <p>In my analysis I use many of the standard <code>{tidyverse}</code> packages, <code>{sf}</code>, <code>{tidycensus}</code>, <code>{tidygraph}</code>, and <code>{ggraph}</code>:</p>
 <pre class="r"><code>library(tidyverse)
 library(vroom)

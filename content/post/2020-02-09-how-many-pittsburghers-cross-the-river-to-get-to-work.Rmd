@@ -22,12 +22,14 @@ This post focuses on how many rivers Pittsburghers cross to get to work. I use t
 
 ## TLDR
 A plurality of commuters don't cross any rivers, and none cross three.
+![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png)
 
+![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png)
 Many commuters in the Golden Triangle and neighborhoods to the east don't cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.
 
 ## Data munging and analysis
 
-I use the "pa_od_aux_JT00_2017.csv" file as shown
+I use the "pa_od_aux_JT00_2017.csv" file as shown:![](/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/lodes_screenshot.png)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
