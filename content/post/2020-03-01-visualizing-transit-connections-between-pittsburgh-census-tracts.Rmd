@@ -1,5 +1,5 @@
 ---
-title: Visualizing transit connections between Pittsburgh census tracts
+title: Visualizing transit connections between census tracts
 author: Conor Tompkins
 date: '2020-03-01'
 slug: visualizing-transit-connections-between-pittsburgh-census-tracts
