@@ -37,7 +37,7 @@ options(tigris_use_cache = TRUE,
 This code loads the transit line data from the [WPRDC](). I create the `full_route_name_id` column and set the coordinate reference system to `4326`.
 ```{r}
 ##load transit data
-transit_lines <- st_read("commuter_route_transit_availability/shapefiles/transit_lines/PAAC_Routes_1909.shp") %>%
+transit_lines <- st_read("data/commuter_route_transit_availability/shapefiles/transit_lines/PAAC_Routes_1909.shp") %>%
   clean_names() %>%
   mutate_at(vars(-all_of(c("geometry"))), as.character) %>%
   rename(route_id = route,
@@ -67,7 +67,7 @@ df_service_type <- transit_lines %>%
 
 This code loads the transit stop shapefile from the [WPRDC]():
 ```{r}
-transit_stops <- st_read("commuter_route_transit_availability/shapefiles/transit_stops/PAAC_Stops_1909.shp") %>%
+transit_stops <- st_read("data/commuter_route_transit_availability/shapefiles/transit_stops/PAAC_Stops_1909.shp") %>%
   st_transform(3488) %>% 
   clean_names() %>% 
   mutate_at(vars(-all_of(c("geometry", "routes_cou"))), as.character) %>%
@@ -105,7 +105,6 @@ transit_stops <- transit_stops %>%
   pivot_longer(cols = starts_with("route_"), names_to = "route_number", values_to = "route_id") %>% 
   st_as_sf()
   
-
 transit_stops
 ```
 
@@ -201,7 +200,7 @@ transit_stops %>%
     theme_minimal()
 ```
 
-`st_is_within_distance` identifies which red points are within 700 meters of the blue points
+`st_is_within_distance` identifies which red points are within 700 meters of the blue points.
 
 This shows the tracts, the tract centroids, and the transit stops within 700 meters of the centroids.
 ```{r}
