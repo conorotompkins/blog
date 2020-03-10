@@ -24,8 +24,8 @@ output:
 <div id="tldr" class="section level2">
 <h2>TLDR</h2>
 <p>A plurality of commuters don’t cross any rivers, and none cross three.
-<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart.png" style="width:80.0%;height:80.0%" /></p>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png" style="width:80.0%;height:80.0%" /></p>
+<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/bar_chart_updated.png" style="width:80.0%;height:80.0%" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph_updated.png" style="width:80.0%;height:80.0%" /></p>
 <p>Many commuters in the Golden Triangle and neighborhoods to the east don’t cross rivers to get to work. Commuters from the North and South Hills areas usually cross one river. Commuters from Sewickley, Coraopolis, and those that live close to the airport are most likely to cross two rivers.</p>
 </div>
 <div id="data-munging-and-analysis" class="section level2">
@@ -176,13 +176,9 @@ df_tracts_summarized &lt;- df_tracts_summarized %&gt;%
   semi_join(allegheny_tracts, by = c(&quot;h_tract&quot; = &quot;GEOID&quot;)) %&gt;% 
   semi_join(allegheny_tracts, by = c(&quot;w_tract&quot; = &quot;GEOID&quot;))
 
-df_tracts_summarized %&gt;% 
-   summarize(jobs = sum(commuters))</code></pre>
-<pre><code>## # A tibble: 1 x 1
-##     jobs
-##    &lt;dbl&gt;
-## 1 479006</code></pre>
-<pre class="r"><code># 479006 total commuters</code></pre>
+# df_tracts_summarized %&gt;% 
+#    summarize(jobs = sum(commuters))
+# 479006 total commuters</code></pre>
 <p>This code finds the center of each tract, which I use as the nodes in the network plots:</p>
 <pre class="r"><code>allegheny_tracts &lt;- allegheny_tracts %&gt;% 
   arrange(GEOID)
@@ -698,9 +694,7 @@ df_chloro_map</code></pre>
 #184404 total commuters</code></pre>
 <p>Then I join <code>df_chloro_map</code> against the census tract geometry to get a complete list of all the tracts. I use <code>complete</code> to add rows for combinations of “from” tracts and <code>count_rivers_intersected</code> that did not appear in the data. Those added rows are given <code>0</code> for <code>pct_of_commuters</code> and <code>total_commuters</code>.</p>
 <pre class="r"><code>df_chloro_map &lt;- df_chloro_map %&gt;% 
-  #filter(is.na(count_rivers_intersected))
   right_join(allegheny_tracts %&gt;% select(GEOID) %&gt;% st_set_geometry(NULL), by = c(&quot;from&quot; = &quot;GEOID&quot;)) %&gt;% 
-  #summarize(commuters = sum(total_commuters, na.rm = TRUE))
   complete(from, count_rivers_intersected = c(0, 1, 2)) %&gt;%
   filter(!is.na(count_rivers_intersected)) %&gt;% #exclude tracts brought in from the right_join
   replace_na(list(pct_of_commuters = 0, total_commuters = 0))
@@ -743,7 +737,7 @@ glimpse(df_chloro_map)</code></pre>
          subtitle = &quot;2017 U.S. Census LODES dataset&quot;,
          caption = &quot;@conor_tompkins&quot;) +
     theme_void()</code></pre>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-41-1.png" width="672" /></p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-42-1.png" width="672" /></p>
 <div id="errata" class="section level3">
 <h3>Errata</h3>
 <p>The previous version of the bar chart double counted the commuters. This is the old version:</p>
@@ -766,8 +760,9 @@ df_commuter_rivers_summary %&gt;%
          y = &quot;Number of commuters&quot;,
          caption = &quot;@conor_tompkins&quot;) +
     theme_bw()</code></pre>
-<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-42-1.png" width="672" /></p>
-<p>A similar but less impactful bug affected the chloropleth chart. For completeness, this is the old verison of that graph:</p>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-44-1.png" width="672" /></p>
+<p>A similar but less impactful bug affected the chloropleth chart. For completeness, this is the old verison of that graph:
+<img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/faceted_graph.png" style="width:80.0%;height:80.0%" /></p>
 </div>
 <div id="references" class="section level3">
 <h3>References</h3>
