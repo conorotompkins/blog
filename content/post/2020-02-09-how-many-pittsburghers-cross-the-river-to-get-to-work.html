@@ -174,7 +174,15 @@ df_tracts_summarized &lt;- df_tracts_summarized %&gt;%
 
 df_tracts_summarized &lt;- df_tracts_summarized %&gt;% 
   semi_join(allegheny_tracts, by = c(&quot;h_tract&quot; = &quot;GEOID&quot;)) %&gt;% 
-  semi_join(allegheny_tracts, by = c(&quot;w_tract&quot; = &quot;GEOID&quot;))</code></pre>
+  semi_join(allegheny_tracts, by = c(&quot;w_tract&quot; = &quot;GEOID&quot;))
+
+df_tracts_summarized %&gt;% 
+   summarize(jobs = sum(commuters))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##     jobs
+##    &lt;dbl&gt;
+## 1 479006</code></pre>
+<pre class="r"><code># 479006 total commuters</code></pre>
 <p>This code finds the center of each tract, which I use as the nodes in the network plots:</p>
 <pre class="r"><code>allegheny_tracts &lt;- allegheny_tracts %&gt;% 
   arrange(GEOID)
@@ -225,6 +233,13 @@ g</code></pre>
 ## 2 42003409000
 ## 3 42003191800
 ## # ... with 399 more rows</code></pre>
+<pre class="r"><code># df_tracts_summarized %&gt;%
+#   as_tbl_graph(directed = TRUE) %&gt;%
+#   activate(edges) %&gt;%
+#   filter(commuters &gt; 25) %&gt;%
+#   as_tibble() %&gt;%
+#   summarize(jobs = sum(commuters))
+# 184404 total commuters</code></pre>
 <p>Here I set a manual layout for the <code>ggraph</code> object. I use the centroids of the census tracts as the nodes in the network graph.</p>
 <pre class="r"><code>node_pos &lt;- allegheny_tracts_centroids
 
@@ -286,6 +301,10 @@ allegheny_lines %&gt;%
   activate(edges) %&gt;% 
   as_tibble()
 
+# df_edges %&gt;%
+#   summarize(commuters = sum(commuters))
+# 184404 total commuters
+
 df_nodes &lt;- g %&gt;% 
   activate(nodes) %&gt;% 
   as_tibble() %&gt;% 
@@ -310,6 +329,10 @@ df_lines</code></pre>
 ##  9       442       5 from             4
 ## 10       442       5 to               1
 ## # ... with 5,946 more rows</code></pre>
+<pre class="r"><code># df_lines %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(jobs = sum(commuters))
+# 184404 total commuters</code></pre>
 <p>Since some commuter “lines” are really just points that start and end at the same centroid, I separate the commuter “lines” from the “points” for purposes of manipulating the geometries.</p>
 <pre class="r"><code>df_line_types &lt;- df_lines %&gt;% 
   pivot_wider(names_from = point_type, values_from = edge_id) %&gt;% 
@@ -332,6 +355,10 @@ df_line_types</code></pre>
 ##  9       442       5 linestring from            4
 ## 10       442       5 linestring to              1
 ## # ... with 5,946 more rows</code></pre>
+<pre class="r"><code># df_line_types %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+# # 184404 total commuters</code></pre>
 <pre class="r"><code>df_linestrings &lt;- df_line_types %&gt;% 
   filter(line_type == &quot;linestring&quot;)
 
@@ -347,6 +374,13 @@ df_points &lt;- df_line_types %&gt;%
   st_cast(&quot;LINESTRING&quot;) %&gt;% 
   st_set_crs(4326)
 
+# df_linestrings %&gt;% 
+#   ungroup() %&gt;% 
+#   st_drop_geometry() %&gt;% 
+#   summarize(commuters = sum(commuters))
+
+# 167409 commuters that change tracts
+
 df_points &lt;- df_points %&gt;% 
   left_join(df_nodes, by = c(&quot;edge_id&quot; = &quot;id&quot;)) %&gt;% 
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;)) %&gt;% 
@@ -354,7 +388,14 @@ df_points &lt;- df_points %&gt;%
   group_by(line_id, commuters) %&gt;%
   summarise() %&gt;%
   st_cast(&quot;POINT&quot;) %&gt;% 
-  st_set_crs(4326)</code></pre>
+  st_set_crs(4326)
+
+# df_points %&gt;% 
+#   ungroup() %&gt;% 
+#   st_drop_geometry() %&gt;% 
+#   summarize(commuters = sum(commuters))
+
+# 16995 commuters that stay within a tract</code></pre>
 <pre class="r"><code>rivers &lt;- rivers %&gt;% 
   st_set_crs(4326)</code></pre>
 <p>Here I calculate which commuter lines intersect with which rivers using <code>st_intersects</code>:</p>
@@ -370,7 +411,13 @@ df_points &lt;- df_points %&gt;%
 df_commuter_rivers &lt;- df_linestrings_intersect %&gt;% 
   pivot_longer(c(contains(&quot;intersects&quot;)), names_to = &quot;river_intersected&quot;, values_to = &quot;value&quot;) %&gt;% 
   mutate(value = case_when(is.na(value) ~ FALSE,
-                           !is.na(value) ~ value))</code></pre>
+                           !is.na(value) ~ value))
+ 
+# df_commuter_rivers %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(jobs = sum(commuters))
+
+# 167409 commuters that change tracts</code></pre>
 <p>This shows that the intersection calculation was successful:</p>
 <pre class="r"><code>df_commuter_rivers %&gt;% 
   filter(value == TRUE) %&gt;% 
@@ -390,18 +437,34 @@ df_commuter_rivers &lt;- df_linestrings_intersect %&gt;%
     scale_size_continuous(range = c(.1, .5))</code></pre>
 <p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
 <p>This combines the dataframes with the lines and points, and then summarizes to count how many of the geometries intersected with a river:</p>
-<pre class="r"><code>df_commuter_rivers_summary &lt;- df_commuter_rivers %&gt;% 
+<pre class="r"><code>#this was double counting
+df_commuter_rivers_combined &lt;- df_commuter_rivers %&gt;% 
   bind_rows(df_points %&gt;% 
-              mutate(value = FALSE)) %&gt;% 
-  group_by(line_id) %&gt;% 
-  summarize(rivers_crossed = sum(value),
-            commuters = sum(commuters))
+              mutate(value = FALSE))
 
-df_commuter_rivers_summary %&gt;% 
+#use for lookup
+df_lines_that_cross_rivers &lt;- df_commuter_rivers_combined %&gt;% 
+  group_by(line_id) %&gt;% 
+  summarize(rivers_crossed = sum(value)) %&gt;% 
+  ungroup()
+
+#find the distinct line_ids and then summarize 
+df_commuter_rivers_summary &lt;- df_commuter_rivers_combined %&gt;% 
+  distinct(line_id, commuters) %&gt;% 
+  left_join(df_lines_that_cross_rivers) %&gt;% 
   group_by(rivers_crossed) %&gt;% 
   summarize(commuters = sum(commuters)) %&gt;% 
+  ungroup()
+  
+
+# df_commuter_rivers_summary %&gt;% 
+#   summarize(commuters = sum(commuters))
+# 184404 total commuters
+
+df_commuter_rivers_summary %&gt;% 
   ggplot(aes(rivers_crossed, commuters)) +
-    geom_col() +
+    geom_col(color = &quot;black&quot;) +
+    geom_text(aes(y = commuters + 5000, label = scales::comma(commuters))) +
     scale_y_continuous(labels = scales::comma) +
     labs(title = &quot;Commuter travel patterns&quot;,
          subtitle = &quot;2017 U.S. Census LODES dataset&quot;,
@@ -435,21 +498,40 @@ df_lines_chloro</code></pre>
 ##  9       442       5 from             4
 ## 10       442       5 to               1
 ## # ... with 5,946 more rows</code></pre>
+<pre class="r"><code># df_lines_chloro %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+# 184404 total commuters</code></pre>
 <p>The next few steps are largely just coercing the geometry to do what I want it to do. Interested parties can read the code.</p>
 <pre class="r"><code>df_line_types_chloro &lt;- df_lines_chloro %&gt;% 
   pivot_wider(names_from = point_type, values_from = edge_id) %&gt;% 
   mutate(line_type = case_when(from == to ~ &quot;point&quot;,
                                from != to ~ &quot;linestring&quot;)) %&gt;% 
-  pivot_longer(cols = c(from, to), names_to = &quot;edge_type&quot;, values_to = &quot;edge_id&quot;)</code></pre>
+  pivot_longer(cols = c(from, to), names_to = &quot;edge_type&quot;, values_to = &quot;edge_id&quot;)
+
+# df_line_types_chloro %&gt;%
+#    distinct(line_id, commuters) %&gt;%
+#    summarize(commuters = sum(commuters))
+#184404 total commuters</code></pre>
 <pre class="r"><code>df_linestrings_chloro &lt;- df_line_types_chloro %&gt;% 
   filter(line_type == &quot;linestring&quot;)
+
+# df_linestrings_chloro %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts
 
 df_linestrings_chloro_lookup &lt;- df_linestrings_chloro %&gt;% 
   select(line_id, edge_type, edge_id) %&gt;% 
   pivot_wider(names_from = edge_type, values_from = edge_id)
 
 df_points_chloro &lt;- df_line_types %&gt;% 
-  filter(line_type == &quot;point&quot;)</code></pre>
+  filter(line_type == &quot;point&quot;)
+
+# df_points_chloro %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+#16995 commuters that stay within a tract</code></pre>
 <pre class="r"><code>df_linestrings_chloro &lt;- df_linestrings_chloro %&gt;% 
   left_join(df_nodes, by = c(&quot;edge_id&quot; = &quot;id&quot;)) %&gt;% 
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;)) %&gt;% 
@@ -462,13 +544,26 @@ df_points_chloro &lt;- df_line_types %&gt;%
   left_join(df_nodes, by = c(&quot;from&quot; = &quot;id&quot;)) %&gt;% 
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;))
 
+# df_linestrings_chloro %&gt;%
+#   ungroup() %&gt;%
+#   st_drop_geometry() %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts
+
 df_points_chloro &lt;- df_points_chloro %&gt;% 
   left_join(df_nodes, by = c(&quot;edge_id&quot; = &quot;id&quot;)) %&gt;% 
   left_join(allegheny_lines, by = c(&quot;name&quot; = &quot;GEOID&quot;)) %&gt;% 
   st_as_sf(coords = c(&quot;X&quot;, &quot;Y&quot;)) %&gt;% 
   group_by(line_id, name, commuters) %&gt;%
   st_cast(&quot;POINT&quot;) %&gt;% 
-  st_set_crs(4326)</code></pre>
+  st_set_crs(4326)
+
+# df_points_chloro %&gt;%
+#   ungroup() %&gt;%
+#   st_drop_geometry() %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+#16995 commuters that stay within a tract</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro %&gt;% 
   ungroup() %&gt;% 
   mutate(intersects_ohio = st_intersects(., rivers %&gt;% 
@@ -479,33 +574,63 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
                                                   filter(NAME == &quot;Monongahela River&quot;)) %&gt;% as.logical()) %&gt;% 
   st_set_geometry(NULL) %&gt;% 
   select(-c(from, to)) %&gt;% 
-  rename(from = name)</code></pre>
+  rename(from = name)
+
+# df_linestrings_chloro_intersect %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro_intersect %&gt;% 
   mutate_at(vars(contains(&quot;intersect&quot;)), ~case_when(is.na(.) ~ FALSE,
                            !is.na(.) ~ .)) %&gt;%
   mutate(no_intersect = case_when(intersects_allegheny == FALSE &amp; intersects_monongahela == FALSE &amp; intersects_ohio == FALSE ~ TRUE,
                                   TRUE ~ FALSE)) %&gt;% 
   select(line_id, from, contains(&quot;intersect&quot;), commuters) %&gt;% 
-  pivot_longer(contains(&quot;intersect&quot;), names_to = &quot;river_intersected&quot;, values_to = &quot;value&quot;)</code></pre>
+  pivot_longer(contains(&quot;intersect&quot;), names_to = &quot;river_intersected&quot;, values_to = &quot;value&quot;)
+
+# df_linestrings_chloro_intersect %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro_intersect %&gt;% 
   mutate(commuters = case_when(value == FALSE ~ 0,
-                               TRUE ~ commuters))</code></pre>
+                               TRUE ~ commuters))
+
+# df_linestrings_chloro_intersect %&gt;%
+#   distinct(line_id, commuters) %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts</code></pre>
 <pre class="r"><code>df_linestrings_chloro_intersect &lt;- df_linestrings_chloro_intersect %&gt;% 
   filter(value == TRUE) %&gt;% 
   group_by(line_id, from, commuters) %&gt;% 
   summarize(count_rivers_intersected = sum(river_intersected != &quot;no_intersect&quot;)) %&gt;% 
-  ungroup()</code></pre>
+  ungroup()
+
+# df_linestrings_chloro_intersect %&gt;%
+#   summarize(commuters = sum(commuters))
+#167409 commuters that change tracts  </code></pre>
 <pre class="r"><code>df_points_chloro &lt;- cbind(df_points_chloro, st_coordinates(st_centroid(df_points_chloro))) %&gt;% 
   st_drop_geometry() %&gt;% 
   rename(from = name) %&gt;% 
-  select(line_id, from, commuters) %&gt;% 
-  mutate(count_rivers_intersected = 0)</code></pre>
-<pre class="r"><code>df_combined &lt;- bind_rows(df_linestrings_chloro_intersect, df_points_chloro)</code></pre>
+  distinct(from, line_id, commuters) %&gt;% 
+  mutate(count_rivers_intersected = 0)
+  
+
+# df_points_chloro %&gt;%
+#    summarize(commuters = sum(commuters))
+#16995 commuters that stay within a tract</code></pre>
+<pre class="r"><code>df_combined &lt;- bind_rows(df_linestrings_chloro_intersect, df_points_chloro)
+
+# df_combined %&gt;%
+#     filter(is.na(from))
+# 
+# df_combined %&gt;%
+#    summarize(commuters = sum(commuters))
+#184404 total commuters</code></pre>
 <pre class="r"><code>df_combined &lt;- df_combined %&gt;% 
   arrange(from, desc(count_rivers_intersected), desc(commuters))</code></pre>
 <p>These are the final steps to create the chloropleth:</p>
 <pre class="r"><code>df_combined</code></pre>
-<pre><code>## # A tibble: 3,208 x 4
+<pre><code>## # A tibble: 2,978 x 4
 ##    line_id from        commuters count_rivers_intersected
 ##      &lt;int&gt; &lt;chr&gt;           &lt;dbl&gt;                    &lt;dbl&gt;
 ##  1     747 42003010300        63                        0
@@ -513,12 +638,12 @@ df_points_chloro &lt;- df_points_chloro %&gt;%
 ##  3    1371 42003020100        42                        1
 ##  4    2290 42003020100        30                        1
 ##  5       1 42003020100       721                        0
-##  6       1 42003020100       721                        0
-##  7     630 42003020100        70                        0
-##  8     730 42003020100        64                        0
-##  9    1102 42003020100        49                        0
-## 10    1629 42003020100        38                        0
-## # ... with 3,198 more rows</code></pre>
+##  6     630 42003020100        70                        0
+##  7     730 42003020100        64                        0
+##  8    1102 42003020100        49                        0
+##  9    1629 42003020100        38                        0
+## 10     349 42003020300       112                        0
+## # ... with 2,968 more rows</code></pre>
 <p>This counts the number of commuters per “from” tract and “count of rivers intersected”. Note that there are multiple rows per “from” tract.</p>
 <pre class="r"><code>df_chloro_map &lt;- df_combined %&gt;%
   ungroup() %&gt;% 
@@ -531,17 +656,23 @@ df_chloro_map</code></pre>
 ##    from        count_rivers_intersected total_commuters
 ##    &lt;chr&gt;                          &lt;dbl&gt;           &lt;dbl&gt;
 ##  1 42003010300                        0              63
-##  2 42003020100                        0            1663
+##  2 42003020100                        0             942
 ##  3 42003020100                        1              72
 ##  4 42003020100                        2              31
-##  5 42003020300                        0             306
+##  5 42003020300                        0             257
 ##  6 42003030500                        0             231
-##  7 42003040200                        0             177
+##  7 42003040200                        0             143
 ##  8 42003040400                        0             108
 ##  9 42003040500                        0              87
 ## 10 42003040600                        0              59
 ## # ... with 712 more rows</code></pre>
-<p>The next step is to calculate the percent of a “from” tract’s that crossed a given number of rivers:</p>
+<pre class="r"><code># df_chloro_map %&gt;%
+#   filter(is.na(count_rivers_intersected))
+# 
+# df_chloro_map %&gt;% 
+#     summarize(commuters = sum(total_commuters))
+#184404 total commuters</code></pre>
+<p>The next step is to calculate the percent of a “from” tract’s commuters that crossed a given number of rivers:</p>
 <pre class="r"><code>df_chloro_map &lt;- df_chloro_map %&gt;% 
   group_by(from) %&gt;% 
   mutate(pct_of_commuters = total_commuters / sum(total_commuters)) %&gt;% 
@@ -552,38 +683,34 @@ df_chloro_map</code></pre>
 ##    from        count_rivers_intersected total_commuters pct_of_commuters
 ##    &lt;chr&gt;                          &lt;dbl&gt;           &lt;dbl&gt;            &lt;dbl&gt;
 ##  1 42003010300                        0              63           1     
-##  2 42003020100                        0            1663           0.942 
-##  3 42003020100                        1              72           0.0408
-##  4 42003020100                        2              31           0.0176
-##  5 42003020300                        0             306           1     
+##  2 42003020100                        0             942           0.901 
+##  3 42003020100                        1              72           0.0689
+##  4 42003020100                        2              31           0.0297
+##  5 42003020300                        0             257           1     
 ##  6 42003030500                        0             231           1     
-##  7 42003040200                        0             177           1     
+##  7 42003040200                        0             143           1     
 ##  8 42003040400                        0             108           1     
 ##  9 42003040500                        0              87           1     
 ## 10 42003040600                        0              59           1     
 ## # ... with 712 more rows</code></pre>
+<pre class="r"><code># df_chloro_map %&gt;% 
+#   summarize(commuters = sum(total_commuters))
+#184404 total commuters</code></pre>
 <p>Then I join <code>df_chloro_map</code> against the census tract geometry to get a complete list of all the tracts. I use <code>complete</code> to add rows for combinations of “from” tracts and <code>count_rivers_intersected</code> that did not appear in the data. Those added rows are given <code>0</code> for <code>pct_of_commuters</code> and <code>total_commuters</code>.</p>
 <pre class="r"><code>df_chloro_map &lt;- df_chloro_map %&gt;% 
+  #filter(is.na(count_rivers_intersected))
   right_join(allegheny_tracts %&gt;% select(GEOID) %&gt;% st_set_geometry(NULL), by = c(&quot;from&quot; = &quot;GEOID&quot;)) %&gt;% 
+  #summarize(commuters = sum(total_commuters, na.rm = TRUE))
   complete(from, count_rivers_intersected = c(0, 1, 2)) %&gt;%
-  filter(!is.na(count_rivers_intersected)) %&gt;% 
+  filter(!is.na(count_rivers_intersected)) %&gt;% #exclude tracts brought in from the right_join
   replace_na(list(pct_of_commuters = 0, total_commuters = 0))
 
-df_chloro_map</code></pre>
-<pre><code>## # A tibble: 1,206 x 4
-##    from        count_rivers_intersected total_commuters pct_of_commuters
-##    &lt;chr&gt;                          &lt;dbl&gt;           &lt;dbl&gt;            &lt;dbl&gt;
-##  1 42003010300                        0              63           1     
-##  2 42003010300                        1               0           0     
-##  3 42003010300                        2               0           0     
-##  4 42003020100                        0            1663           0.942 
-##  5 42003020100                        1              72           0.0408
-##  6 42003020100                        2              31           0.0176
-##  7 42003020300                        0             306           1     
-##  8 42003020300                        1               0           0     
-##  9 42003020300                        2               0           0     
-## 10 42003030500                        0             231           1     
-## # ... with 1,196 more rows</code></pre>
+# df_chloro_map %&gt;% 
+#   filter(is.na(count_rivers_intersected))
+# 
+# df_chloro_map %&gt;% 
+#   summarize(commuters = sum(total_commuters, na.rm = TRUE))
+#184404 total commuters</code></pre>
 <p>The final step is to right join againt the census tract data to bring over the geometry.</p>
 <pre class="r"><code>df_chloro_map &lt;- df_chloro_map %&gt;% 
   right_join(allegheny_tracts, by = c(&quot;from&quot; = &quot;GEOID&quot;))
@@ -593,8 +720,8 @@ glimpse(df_chloro_map)</code></pre>
 ## Variables: 7
 ## $ from                     &lt;chr&gt; &quot;42003010300&quot;, &quot;42003010300&quot;, &quot;42003010300...
 ## $ count_rivers_intersected &lt;dbl&gt; 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, ...
-## $ total_commuters          &lt;dbl&gt; 63, 0, 0, 1663, 72, 31, 306, 0, 0, 231, 0,...
-## $ pct_of_commuters         &lt;dbl&gt; 1.000, 0.000, 0.000, 0.942, 0.041, 0.018, ...
+## $ total_commuters          &lt;dbl&gt; 63, 0, 0, 942, 72, 31, 257, 0, 0, 231, 0, ...
+## $ pct_of_commuters         &lt;dbl&gt; 1.000, 0.000, 0.000, 0.901, 0.069, 0.030, ...
 ## $ NAME                     &lt;chr&gt; &quot;Census Tract 103, Allegheny County, Penns...
 ## $ total_pop                &lt;dbl&gt; 6600, 6600, 6600, 3629, 3629, 3629, 616, 6...
 ## $ geometry                 &lt;MULTIPOLYGON [°]&gt; MULTIPOLYGON (((-80 40, -80.....</code></pre>
@@ -617,6 +744,31 @@ glimpse(df_chloro_map)</code></pre>
          caption = &quot;@conor_tompkins&quot;) +
     theme_void()</code></pre>
 <p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-41-1.png" width="672" /></p>
+<div id="errata" class="section level3">
+<h3>Errata</h3>
+<p>The previous version of the bar chart double counted the commuters. This is the old version:</p>
+<pre class="r"><code>df_commuter_rivers_summary &lt;- df_commuter_rivers %&gt;% 
+  bind_rows(df_points %&gt;% 
+              mutate(value = FALSE)) %&gt;% 
+  group_by(line_id) %&gt;% 
+  summarize(rivers_crossed = sum(value),
+            commuters = sum(commuters))
+
+df_commuter_rivers_summary %&gt;% 
+  group_by(rivers_crossed) %&gt;% 
+  summarize(commuters = sum(commuters)) %&gt;% 
+  ggplot(aes(rivers_crossed, commuters)) +
+    geom_col() +
+    scale_y_continuous(labels = scales::comma) +
+    labs(title = &quot;Commuter travel patterns&quot;,
+         subtitle = &quot;2017 U.S. Census LODES dataset&quot;,
+         x = &quot;Rivers crossed&quot;,
+         y = &quot;Number of commuters&quot;,
+         caption = &quot;@conor_tompkins&quot;) +
+    theme_bw()</code></pre>
+<p><img src="/post/2020-02-09-how-many-pittsburghers-cross-the-river-to-get-to-work_files/figure-html/unnamed-chunk-42-1.png" width="672" /></p>
+<p>A similar but less impactful bug affected the chloropleth chart. For completeness, this is the old verison of that graph:</p>
+</div>
 <div id="references" class="section level3">
 <h3>References</h3>
 <ul>
