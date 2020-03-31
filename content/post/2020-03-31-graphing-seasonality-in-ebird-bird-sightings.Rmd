@@ -8,7 +8,7 @@ categories:
 tags: []
 ---
 
-Over the winter I became interested in birding. Sitting in your back yard doing nothing but watching birds fly around is quite relaxing. Naturally I am looking for ways to optimize and quantify this relaxing activity. eBird lets you track your bird sightings and research which birds are common or more rare in your area. Luckily, the folks at ROpenSci have the `{rebird}` package, which provides an easy interface to the eBird API.
+Over the winter I became interested in birding. Sitting in your back yard doing nothing but watching birds fly around is quite relaxing. Naturally I am looking for ways to optimize and quantify this relaxing activity. [eBird](https://ebird.org/home) lets you track your bird sightings and research which birds are common or more rare in your area. Luckily, the folks at [ROpenSci](https://ropensci.org/) have the `{rebird}` [package](https://cran.r-project.org/web/packages/rebird/index.html), which provides an easy interface to the eBird API.
 
 In this post I will graph the seasonality of observation frequency of the top 10 birds in Pennsylvania. Frequency in this context is the % of eBird checklists that the bird appeared in during a given period.
 
