@@ -18,7 +18,6 @@ As part my work on transit lines in Allegheny County, I am interested in which t
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
-                      results = 'hide',
                       fig.width = 9,
                       fig.height = 9)
 ```
@@ -39,7 +38,7 @@ theme_set(theme_bw())
 ```
 
 This loads the summarized LODES census tract data ([munging script here](https://github.com/conorotompkins/commuter_route_transit_availability/blob/master/scripts/munge_data.R))
-```{r message=FALSE, warning=FALSE}
+```{r results = 'hide'}
 df_tract_centroid_summary <- st_read("data/transit_line_efficiency/shapefiles/tract_centroid_summary/tract_centroid_summary.shp")
 ```
 
@@ -75,7 +74,7 @@ This code grabs the shapefile with the transit route stats and stop geometry. Th
 * calculates how many residents and jobs are in each census tract
 * calculates which transit lines stops serve which census tracts
 * summarizes how many residents and jobs a transit line servers
-```{r message=FALSE, warning=FALSE}
+```{r results = 'hide'}
 df_route_stats <- st_read("data/transit_line_efficiency/shapefiles/route_stats/route_stats.shp") %>% 
   rename(route_id = route_d,
          service_type = srvc_ty,

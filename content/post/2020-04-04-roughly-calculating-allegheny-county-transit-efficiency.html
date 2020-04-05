@@ -67,6 +67,34 @@ theme_set(theme_bw())</code></pre>
          route_length_miles = rt_lng_,
          stops_per_mile = stps_p_)</code></pre>
 <pre class="r"><code>df_route_stats</code></pre>
+<pre><code>## Simple feature collection with 102 features and 8 fields
+## geometry type:  MULTIPOINT
+## dimension:      XY
+## bbox:           xmin: -80 ymin: 40 xmax: -80 ymax: 41
+## CRS:            4326
+## First 10 features:
+##    route_id service_type   jobs residents stop_count       route_name
+## 1         1        Local  21282     10119        224    Freeport Road
+## 2        11        Local    998      4102         62         Fineview
+## 3        12        Local   4640      2406        112         McKnight
+## 4        13        Local  26667     15659        140         Bellevue
+## 5        14        Local  31869     10017        140      Ohio Valley
+## 6        15        Local  21376      3934         98          Charles
+## 7        16 Key Corridor  22588      7712        124         Brighton
+## 8        17        Local  30226     10285        108        Shadeland
+## 9        18        Local   8380      4746         47       Manchester
+## 10      19L      Express 294211     18845         94 Emsworth Limited
+##    route_length_miles stops_per_mile                       geometry
+## 1                44.4            5.0 MULTIPOINT ((-80 40), (-80 ...
+## 2                 5.6           11.1 MULTIPOINT ((-80 40), (-80 ...
+## 3                30.6            3.7 MULTIPOINT ((-80 41), (-80 ...
+## 4                15.5            9.0 MULTIPOINT ((-80 40), (-80 ...
+## 5                33.4            4.2 MULTIPOINT ((-80 41), (-80 ...
+## 6                 8.9           11.0 MULTIPOINT ((-80 40), (-80 ...
+## 7                 8.3           15.0 MULTIPOINT ((-80 41), (-80 ...
+## 8                13.0            8.3 MULTIPOINT ((-80 40), (-80 ...
+## 9                 5.0            9.5 MULTIPOINT ((-80 40), (-80 ...
+## 10               15.6            6.0 MULTIPOINT ((-80 41), (-80 ...</code></pre>
 <p>This is a basic plot of all the transit stops in the county:</p>
 <pre class="r"><code>df_route_stats %&gt;% 
   ggplot() +
@@ -156,3 +184,4 @@ theme_set(theme_bw())</code></pre>
     gganimate::transition_states(service_type)
 
 plot</code></pre>
+<p><img src="/post/2020-04-04-roughly-calculating-allegheny-county-transit-efficiency_files/figure-html/unnamed-chunk-12-1.gif" /><!-- --></p>
