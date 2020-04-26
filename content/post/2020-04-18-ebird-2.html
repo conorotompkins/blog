@@ -173,7 +173,7 @@ df_counts</code></pre>
     guides(fill = FALSE) +
     labs(x = &quot;Correlation&quot;,
          y = NULL)</code></pre>
-<p><img src="/post/2020-04-18-ebird-2_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p><img src="/post/2020-04-18-ebird-2_files/figure-html/unnamed-chunk-14-1.png" width="960" /></p>
 <p>Cardinals and Blue Jays share many birds in common, but there are some distinctions, and the level of correlation can vary. I use a slopegraph to show the difference in how much a bird is correlated with Blue Jays vs. Cardinals.</p>
 <p>This grabs the data for the two target species and gets the top 20 correlated birds for each species:</p>
 <pre class="r"><code>df_slopegraph &lt;- df_pair_corr %&gt;% 
