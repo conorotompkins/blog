@@ -149,7 +149,7 @@ df_pair_corr <- df %>%
   pairwise_cor(common_name, observation_event_id, diag = FALSE, upper = FALSE)
 ```
 
-```{r}
+```{r fig.width=10}
 df_pair_corr %>% 
   filter(item1 %in% species_list) %>% 
   drop_na(correlation) %>% 
