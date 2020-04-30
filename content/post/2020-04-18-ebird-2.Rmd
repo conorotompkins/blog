@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       cache = FALSE)
 ```
 
-In this post I will do some exploratory analysis on eBird data. I've picked up birdwatching as a hobby during quarantine, and eBird has a ton of cool data on bird sightings.
+In this post I will do some exploratory analysis on eBird data. I've picked up birdwatching as a hobby during quarantine, and eBird has a ton of [cool data on bird sightings](https://ebird.org/data/download).
 
 ## Setup
 
