@@ -1,0 +1,123 @@
+---
+title: Cumulative eBird sightings in Allegheny County
+author: Conor Tompkins
+date: '2020-04-29'
+slug: cumulative-ebird-sightings-in-allegheny-county
+categories:
+  - Pittsburgh
+  - R
+tags:
+  - Allegheny County
+  - EBird
+---
+
+
+
+<p>This will be a quick post on cumulative bird observations in Allegheny County. Cumulative graphs show overall trends, seasonality, and quirks in how the data was recorded. They are also fun to turn into animated gifs with <code>gganimate</code>.</p>
+<p>Load the relevant libraries:</p>
+<pre class="r"><code>library(tidyverse)
+library(lubridate)
+library(tidyquant)
+library(janitor)
+library(hrbrthemes)
+library(vroom)
+library(ggrepel)
+library(gganimate)
+
+set.seed(1234)
+
+theme_set(theme_bw(base_size = 16))</code></pre>
+<p>This reads in data from the <a href="https://ebird.org/data/download">eBird data portal</a>:</p>
+<pre class="r"><code>df &lt;- vroom(&quot;data/ebird2/ebd_US-PA-003_201001_202003_relFeb-2020.zip&quot;, delim = &quot;\t&quot;) %&gt;% 
+  clean_names() %&gt;% 
+  mutate_at(vars(observer_id, locality, observation_date, time_observations_started, protocol_type), str_replace_na, &quot;NA&quot;) %&gt;% 
+  mutate(observation_count = as.numeric(str_replace(observation_count, &quot;X&quot;, as.character(NA))),
+         observation_event_id = str_c(observer_id, locality, observation_date, time_observations_started, sep = &quot;-&quot;),
+         observation_date = ymd(observation_date)) %&gt;%
+  filter(all_species_reported == 1)
+
+df</code></pre>
+<pre><code>## # A tibble: 528,787 x 48
+##    global_unique_i~ last_edited_date    taxonomic_order category common_name
+##    &lt;chr&gt;            &lt;dttm&gt;                        &lt;dbl&gt; &lt;chr&gt;    &lt;chr&gt;      
+##  1 URN:CornellLabO~ 2018-08-03 11:44:16             493 species  American B~
+##  2 URN:CornellLabO~ 2018-08-03 11:44:34           20638 species  American C~
+##  3 URN:CornellLabO~ 2016-06-16 20:47:49           20638 species  American C~
+##  4 URN:CornellLabO~ 2014-04-25 01:11:40           20638 species  American C~
+##  5 URN:CornellLabO~ 2018-01-10 18:41:16           20638 species  American C~
+##  6 URN:CornellLabO~ 2016-06-16 20:47:49           20638 species  American C~
+##  7 URN:CornellLabO~ 2016-06-16 20:47:49           20638 species  American C~
+##  8 URN:CornellLabO~ 2016-04-27 08:20:35           20638 species  American C~
+##  9 URN:CornellLabO~ 2018-08-03 11:44:08           20638 species  American C~
+## 10 URN:CornellLabO~ 2014-04-25 00:51:10           20638 species  American C~
+## # ... with 528,777 more rows, and 43 more variables: scientific_name &lt;chr&gt;,
+## #   subspecies_common_name &lt;chr&gt;, subspecies_scientific_name &lt;chr&gt;,
+## #   observation_count &lt;dbl&gt;, breeding_bird_atlas_code &lt;chr&gt;,
+## #   breeding_bird_atlas_category &lt;chr&gt;, age_sex &lt;chr&gt;, country &lt;chr&gt;,
+## #   country_code &lt;chr&gt;, state &lt;chr&gt;, state_code &lt;chr&gt;, county &lt;chr&gt;,
+## #   county_code &lt;chr&gt;, iba_code &lt;lgl&gt;, bcr_code &lt;dbl&gt;, usfws_code &lt;lgl&gt;,
+## #   atlas_block &lt;lgl&gt;, locality &lt;chr&gt;, locality_id &lt;chr&gt;, locality_type &lt;chr&gt;,
+## #   latitude &lt;dbl&gt;, longitude &lt;dbl&gt;, observation_date &lt;date&gt;,
+## #   time_observations_started &lt;chr&gt;, observer_id &lt;chr&gt;,
+## #   sampling_event_identifier &lt;chr&gt;, protocol_type &lt;chr&gt;, protocol_code &lt;chr&gt;,
+## #   project_code &lt;chr&gt;, duration_minutes &lt;dbl&gt;, effort_distance_km &lt;dbl&gt;,
+## #   effort_area_ha &lt;dbl&gt;, number_observers &lt;dbl&gt;, all_species_reported &lt;dbl&gt;,
+## #   group_identifier &lt;chr&gt;, has_media &lt;dbl&gt;, approved &lt;dbl&gt;, reviewed &lt;dbl&gt;,
+## #   reason &lt;lgl&gt;, trip_comments &lt;chr&gt;, species_comments &lt;chr&gt;, x47 &lt;lgl&gt;,
+## #   observation_event_id &lt;chr&gt;</code></pre>
+<p>I focus on the two main ways people use the eBird app: traveling and stationary. I also filter to only observations from 2016 onwards, since that is when eBird usage became stable in the county.</p>
+<pre class="r"><code>df_top_protocols &lt;- df %&gt;% 
+  count(protocol_type, sort = TRUE) %&gt;% 
+  slice(1:2)
+
+df &lt;- df %&gt;% 
+  semi_join(df_top_protocols) %&gt;% 
+  filter(year(observation_date) &gt;= 2016)</code></pre>
+<p>This identifies the top 10 birds in terms of total observations:</p>
+<pre class="r"><code>df_species_count &lt;- df %&gt;% 
+  group_by(common_name) %&gt;% 
+  summarize(observation_count = sum(observation_count, na.rm = TRUE)) %&gt;% 
+  arrange(desc(observation_count)) %&gt;% 
+  slice(1:10)</code></pre>
+<p>This code filters on the top 10 birds and caculates the cumulative number of sightings and the rolling 21 day average of sightings.</p>
+<pre class="r"><code>df_cumulative &lt;- df %&gt;% 
+  semi_join(df_species_count, by = c(&quot;common_name&quot;)) %&gt;% 
+  group_by(common_name, observation_date) %&gt;% 
+  summarize(observation_count = sum(observation_count, na.rm = TRUE)) %&gt;% 
+  ungroup() %&gt;% 
+  arrange(common_name, observation_date) %&gt;% 
+  group_by(common_name) %&gt;% 
+  mutate(observation_count_cumulative = cumsum(observation_count)) %&gt;% 
+  tq_mutate(
+    # tq_mutate args
+    select     = observation_count,
+    mutate_fun = rollapply, 
+    # rollapply args
+    width      = 21,
+    align      = &quot;right&quot;,
+    FUN        = mean,
+    # mean args
+    na.rm      = TRUE,
+    # tq_mutate args
+    col_rename = &quot;mean_21&quot;
+  )</code></pre>
+<p>This plots the cumulative observations by bird and creates an animation with <code>gganimate</code>:</p>
+<pre class="r"><code>plot &lt;- df_cumulative %&gt;% 
+  ggplot(aes(observation_date, observation_count_cumulative, group = common_name)) +
+  geom_line(alpha = .5) +
+  geom_segment(aes(xend = last(df_cumulative$observation_date) + 240, yend = observation_count_cumulative), linetype = 2, colour = &#39;grey&#39;) +
+  geom_point(aes(size = mean_21)) +
+  geom_label(aes(x = last(df_cumulative$observation_date) + 210, label = common_name), size = 6) +
+  scale_y_comma() +
+  scale_size_continuous(&quot;21 day rolling average of observation count&quot;, range = c(2, 10), labels = scales::comma) +
+  scale_x_date(limits = c(first(df_cumulative$observation_date), last(df_cumulative$observation_date) + 250)) +
+  labs(x = NULL,
+       y = &quot;Cumulative observations&quot;,
+       title = &quot;eBird observations in Allegheny County&quot;,
+       subtitle = &quot;Top 10 birds 2016 through January 2020&quot;,
+       caption = &quot;@conor_tompkins&quot;) +
+  coord_cartesian(clip = &#39;off&#39;) +
+  transition_reveal(observation_date)
+
+plot</code></pre>
+<p><img src="/post/2020-04-29-cumulative-ebird-sightings-in-allegheny-county_files/cumulative_observations.gif" /></p>
