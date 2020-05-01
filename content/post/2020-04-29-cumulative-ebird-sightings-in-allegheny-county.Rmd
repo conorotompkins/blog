@@ -46,7 +46,7 @@ df <- vroom("data/ebird2/ebd_US-PA-003_201001_202003_relFeb-2020.zip", delim = "
          observation_date = ymd(observation_date)) %>%
   filter(all_species_reported == 1)
 
-df
+glimpse(df)
 ```
 
 I focus on the two main ways people use the eBird app: traveling and stationary. I also filter to only observations from 2016 onwards, since that is when eBird usage became stable in the county.
