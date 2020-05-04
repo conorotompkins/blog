@@ -9,7 +9,7 @@ tags:
   - eBird
 ---
 
-In this post, I use k-means clustering to identify clusters of bird species based on frequency of observations per month. I use bird sightings in Allegheny County from eBird.
+In this post, I use k-means clustering to identify clusters of bird species based on frequency of observations per month. I use bird sightings in Allegheny County from [eBird](https://ebird.org/data/download).
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
