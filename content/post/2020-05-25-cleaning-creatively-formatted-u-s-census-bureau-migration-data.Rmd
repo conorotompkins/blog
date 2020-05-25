@@ -1,0 +1,10 @@
+---
+title: Cleaning creatively formatted U.S. Census Bureau Migration data
+author: '''Conor'
+date: '2020-05-25'
+slug: cleaning-creatively-formatted-u-s-census-bureau-migration-data
+categories:
+  - R
+tags:
+  - Census
+---
