@@ -15,9 +15,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE)
 ```
 
-I recently ran across the [U.S. Census page for state-to-state migration flows](https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html). There's a lot of interesting analyses that can be done with a dataset like this. Unfortunately, when I opened up the .xls file, I realized that the data is not formatted in a way that makes it easy to analyze.
+I recently ran across the [U.S. Census Bureau page for state-to-state migration flows](https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html). There's a lot of interesting analyses that can be done with a dataset like this. Unfortunately, when I opened up the .xls file, I realized that the data is not formatted in a way that makes it easy to analyze.
 
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_1.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_1.png){width=90% height=90%}
 
 The data is *extremely* wide and contains a header, merged cells, multiple layers of column names, duplicate rows, and a footer. I assume there is a good reason for this format, but it does not make it easy for analysts to use.
 
@@ -37,7 +37,7 @@ The first step is to read in the data with `read_xls`. I opened the .xls file to
 df <- read_xls("data/cleaning_census_migration_data/State_to_State_Migrations_Table_2017.xls", range = "A7:DZ78", na = "N/A")
 ```
 
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_2.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_2.png){width=90% height=90%}
 
 The column headers are clearly malformed and there are rows of useless or blank values. The data is wide, and each `from_state` has its own column for Estimate and MOE (Margin of Error). For my purposes, I only want to keep the Estimate data for each `from_state`.
 
@@ -51,9 +51,9 @@ df <- df %>%
            state_population_different_state_residence_one_year = 8)
 ```
 
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_3.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_3.png){width=90% height=90%}
 
-Next, I drop the columns that contain the MOEs and other duplicate columns. `read_xls` did a good job identifying those automatically, so I can just search for `".."`, the string that the function uses to name unnamed columns.
+Next, I drop the columns that contain the MOEs and other duplicate columns. `read_xls` did a good job identifying those automatically, so I can just search for `".."`, the string that the function uses to name columns it didn't find a name for.
 ```{r}
 df <- df %>% 
     select(-contains("..")) %>%
@@ -62,9 +62,9 @@ df <- df %>%
     filter(!str_detect(state_from, "residence"))
 ```
 
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_4.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_4.png){width=90% height=90%}
 
-This is much closer to a dataset that can be used for analysis. The remaining steps are pretty standard data munging activities. I turn the relevant columns from character to numeric type, filter out data I don't need, and pivot the data from wide to long. I aso compute the total migration population.
+This is much closer to a dataset that can be used for analysis. The remaining steps are pretty standard data munging activities. I turn the relevant columns from character to numeric type, filter out data I don't need, and pivot the data from wide to long. I aso compute the total migration population by state.
 ```{r}
 df <- df %>%
   mutate_at(vars(2:ncol(df)), as.numeric) %>%
@@ -75,7 +75,7 @@ df <- df %>%
   ungroup() 
 ```
 
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_5.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_5.png){width=90% height=90%}
 
 Finally, I calculate what % of a `from_state`'s total outward migration goes to each `to_state` and clean up the `to_state` names.
 ```{r}
@@ -87,7 +87,7 @@ df <- df %>%
 ```
 
 This is the final dataset:
-![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_6.png){width=80% height=80%}
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_6.png){width=90% height=90%}
 
 I turned the above steps into a function called `clean_census_migration_data`. This lets me read in and clean the data in one line.
 ```{r}
