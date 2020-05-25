@@ -1,5 +1,5 @@
 ---
-title: Cleaning creatively formatted U.S. Census Bureau Migration data
+title: Cleaning creatively formatted Census Bureau data
 author: Conor Tompkins
 date: '2020-05-25'
 slug: cleaning-creatively-formatted-u-s-census-bureau-migration-data
@@ -20,7 +20,6 @@ library(lubridate)
 library(readxl)
 library(janitor)
 library(tidytext)
-library(hrbrthemes)
 
 theme_set(theme_bw())</code></pre>
 <p>The first step is to read in the data with <code>read_xls</code>. I opened the .xls file to find the <code>range</code> that contained the data, and set Excel’s “N/A” value to be <code>NA</code>.</p>
