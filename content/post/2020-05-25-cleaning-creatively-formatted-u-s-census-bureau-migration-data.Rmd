@@ -142,7 +142,8 @@ df_migration <- migration_files %>%
   map_dfr(clean_census_migration_data, .id = "file_name") %>% 
   mutate(year = str_extract(file_name, "[[:digit:]]{4}") %>% as.numeric) %>% 
   select(year, everything(), -file_name)
-
-glimpse(df_migration)
 ```
 
+![](/post/2020-05-25-cleaning-creatively-formatted-u-s-census-bureau-migration-data_files/screenshot_7.png){width=90% height=90%}
+
+Note: the above function will not work with the 2009 migration file because the Census Bureau did not include summary statistics about the `from_state` for that year. You can read in the 2009 file separately with a modified `clean_census_migration_data` function and join that back to the rest of the data.
