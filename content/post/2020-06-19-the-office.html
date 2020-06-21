@@ -234,7 +234,7 @@ df_writers %&gt;%
          character = str_remove_all(character, &quot;\\)&quot;),
          character = str_replace_all(character, &quot; &quot;, &quot;_&quot;)) %&gt;%
   count(season, episode, character, name = &quot;line_count&quot;)</code></pre>
-<p>This selects only the characters that were involved in more than 20 episodes and pivots the data wide.</p>
+<p>This selects only the characters that were involved in more than 20 episodes and pivots the data wide. The value in each character column shows how many lines they had in the episode.</p>
 <pre class="r"><code>df_top_characters &lt;- df_characters %&gt;% 
   count(character, sort = TRUE) %&gt;% 
   filter(n &gt;= 20) %&gt;% 
@@ -401,7 +401,7 @@ df_vi %&gt;%
   scale_fill_viridis_c() +
   scale_y_reordered() +
   labs(y = NULL)</code></pre>
-<p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+<p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-21-1.png" width="864" /></p>
 <p>Phyllis is the cast MVP, based on this model. The high values for “Everyone” and “All” show that scenes where the entire office is involved are highly associated with increased ratings. Carell’s directorship is significantly more important than the other directors. The model has a dim view of Nellie and the later seasons of the show in general. The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.</p>
 <p>Splitting the model inputs by role means I can compare how impactful a person was across roles. For example, the showrunner Greg Daniels was relatively more important as as writer than a director.</p>
 <pre class="r"><code>df_vi %&gt;%  
