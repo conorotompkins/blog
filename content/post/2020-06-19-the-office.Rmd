@@ -1,0 +1,391 @@
+---
+title: The Office
+author: Conor Tompkins
+date: '2020-06-19'
+slug: the-office
+categories:
+  - R
+tags: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+library(janitor)
+library(schrute)
+library(tidyr)
+library(glmnet)
+library(tidymodels)
+library(vip)
+
+options(scipen = 999, digits = 2)
+
+theme_set(theme_bw())
+
+set.seed(1234)
+```
+
+The goal for this analysis is to determine which characters, directors, and writers from The Office most influence an episode's IMDB rating. My hypothesis is that IMDB rating is largely driven by a few show personnel.
+
+The steps in the analysis are:
+* organize the data
+** split by director, writer, and cast
+* clean up the data
+* model the data
+** initial naive model
+** bootstrapped model
+* review model output and performance
+
+The first step is to download the data from the ```{shrute}``` package. The data is organized by season/episode/line, which is useful for analyzing characters, but not writers or directors.
+```{r}
+df <- schrute::theoffice %>% 
+  as_tibble() %>% 
+  mutate(air_date = ymd(air_date))
+
+glimpse(df)
+```
+
+## Basic EDA
+
+The boxplot shows that ```season``` may have an impact on the rating, so I will include that in the model.
+```{r}
+df %>% 
+  distinct(air_date, season, imdb_rating) %>% 
+  ggplot(aes(air_date, imdb_rating, fill = as.factor(season))) +
+    # geom_point() +
+    # geom_smooth(aes(group = 1), color = "black") +
+    geom_boxplot() +
+    labs(x = "Air date",
+         y = "IMDB rating",
+         color = "Season") +
+    theme(legend.position = "bottom")
+```
+
+This creates a table with IMDB ratings and season premier/finale flags. This will be the table I join the personnel data to.
+```{r}
+df_imdb <- df %>% 
+  distinct(season, episode, imdb_rating) %>% 
+  group_by(season) %>% 
+  mutate(flag_premier = episode == first(episode),
+         flag_finale = episode == last(episode)) %>% 
+  ungroup() %>% 
+  mutate(across(contains("flag"), as.numeric))
+```
+
+### Directors
+
+Some episodes have more than one director, so I separate them into separate rows.
+```{r}
+df_directors <- df %>% 
+  distinct(season, episode, director) %>% 
+  separate_rows(director, sep = ";")
+```
+
+The original data contains mispellings of director names, which will cause issues when I filter out less common directors. This code fixes those mispellings.
+```{r}
+df_director_fix <- tibble(director_good = c("Charles McDougall",
+                                            "Claire Scanlon",
+                                            "Greg Daniels",
+                                            "Ken Whittingham",
+                                            "Paul Lieberstein"),
+                          director_bad = c("Charles McDougal",
+                                           "Claire Scanlong",
+                                           "Greg Daneils",
+                                           "Ken Wittingham",
+                                           "Paul Lieerstein"))
+
+df_directors <- df_directors %>% 
+  left_join(df_director_fix, by = c("director" = "director_bad")) %>% 
+  mutate(director = case_when(!is.na(director_good) ~ director_good,
+                              is.na(director_good) ~ director)) %>% 
+  mutate(director = str_c("director", director, sep = "_")) %>% 
+  select(-director_good)
+```
+
+This selects only directors that were involved in more than 2 episodes.
+```{r}
+df_directors <- df_directors %>%  
+  mutate(director = str_remove_all(director, "\\."),
+         director = str_replace_all(director, "\\-", "_"),
+         director = str_replace_all(director, " ", "_")) %>% 
+  add_count(director) %>% 
+  filter(n > 2) %>% 
+  select(-n)
+```
+
+This pivots the data wide so it can be used with the regression model.
+```{r}
+df_directors <- df_directors %>% 
+  mutate(flag = 1) %>% 
+  pivot_wider(id_cols = c(season, episode), names_from = director, values_from = flag, values_fill = list(flag = 0))
+
+glimpse(df_directors)
+```
+
+### Writers
+
+This separates out where more than one writer was involved in an episode, filters on writers that were involved in more than 2 episodes, and pivots the data wide.
+```{r}
+df_writers <- df %>% 
+  distinct(season, episode, writer) %>% 
+  separate_rows(writer, sep = ";") %>% 
+  add_count(writer) %>% 
+  filter(n > 2)
+
+df_writers <- df_writers %>% 
+  mutate(writer = str_remove_all(writer, "\\."),
+         writer = str_replace_all(writer, "\\-", "_"),
+         writer = str_replace_all(writer, " ", "_")) %>% 
+  mutate(writer = str_c("writer", writer, sep = "_"))
+
+df_writers <- df_writers %>% 
+  mutate(flag = 1) %>% 
+  pivot_wider(id_cols = c(season, episode), names_from = writer, values_from = flag, values_fill = list(flag = 0))
+
+glimpse(df_writers)
+```
+
+### Characters
+
+Some of the characters are named inconsistently, so this fixes the cases I identified.
+```{r}
+df_characters <- df %>% 
+  select(season, episode, character) %>% 
+  mutate(character = case_when(season == 7 & episode == 18 & character == "Todd" ~ "Todd Packer",
+                               TRUE ~ character)) %>% 
+  mutate(character = case_when(season == 7 & episode == 14 & character == "David" ~ character,
+                               character == "David" ~ "David Wallace",
+                               TRUE ~ character)) %>% 
+  mutate(character = case_when(character == "DeAngelo" ~ "Deangelo",
+                               TRUE ~ character))
+```
+
+Some of the values contain odd characters that need to be removed. This also counts how many lines a character had in an episode.
+```{r}
+df_characters <- df_characters %>%
+  mutate(character = str_replace_all(character, " & ", " and "),
+         character = str_replace_all(character, "/", " and "),
+         character = str_replace_all(character, ",", " and "),
+         character = str_trim(character),
+         character = str_remove_all(character, "#"),
+         character = str_remove_all(character, "-"),
+         character = str_remove_all(character, "'"),
+         character = str_remove_all(character, '"'),
+         character = str_remove_all(character, "\\["),
+         character = str_remove_all(character, "\\]"),
+         character = str_remove_all(character, "\\("),
+         character = str_remove_all(character, "\\)"),
+         character = str_replace_all(character, " ", "_")) %>%
+  count(season, episode, character, name = "line_count")
+```
+
+This selects only the characters that were involved in more than 20 episodes and pivots the data wide.
+```{r}
+df_top_characters <- df_characters %>% 
+  count(character, sort = TRUE) %>% 
+  filter(n >= 20) %>% 
+  select(character)
+
+df_characters_main <- df_characters %>% 
+  semi_join(df_top_cast) %>% 
+  pivot_wider(id_cols = c(season, episode), 
+              names_from = character, 
+              names_prefix = "cast_", 
+              values_from = line_count, 
+              values_fill = list(line_count = 0))
+
+glimpse(df_characters_main)
+```
+
+## Prepare data for modeling
+
+This combines all the personnel tables and creates an ```episode_id``` variable. I also replace missing values with 0.
+```{r}
+df_office <- df_imdb %>% 
+  left_join(df_directors) %>% 
+  left_join(df_writers) %>% 
+  left_join(df_characters_main) %>% 
+  mutate(episode_id = str_c(season, episode, sep = "_")) %>% 
+  mutate(across(contains("director"), coalesce, 0),
+         across(contains("writer"), coalesce, 0)) %>% 
+  select(-episode)
+
+glimpse(df_office)
+```
+
+This splits the data into the training and testing sets that will be used to model the data. I stratify by ```season``` because it may have an effect on ```imdb_rating``` that I want to capture.
+```{r}
+office_split <- initial_split(df_office, strata = season)
+office_train <- training(office_split)
+office_test <- testing(office_split)
+```
+
+This creates a ```tidymodels``` recipe that removes zero-variance variables and normalizes the predictor variables.
+```{r}
+office_rec <- recipe(imdb_rating ~ ., data = office_train) %>%
+  update_role(episode_id, new_role = "ID") %>%
+  step_zv(all_numeric(), -all_outcomes()) %>%
+  step_normalize(all_numeric(), -all_outcomes())
+
+office_prep <- office_rec %>%
+  prep(strings_as_factors = FALSE)
+```
+
+The first model I create will be a linear model with ridge regression. This penalizes extreme model coefficients...
+```{r eval=FALSE}
+lasso_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
+  set_engine("glmnet")
+
+wf <- workflow() %>%
+  add_recipe(office_rec)
+
+lasso_fit <- wf %>%
+  add_model(lasso_spec) %>%
+  fit(data = office_train)
+
+lasso_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+
+#need to add metrics
+lasso_fit %>%
+  pull_workflow_fit() %>% 
+  predict(office_test) %>% 
+  bind_cols(office_test) %>% 
+  metrics(truth = imdb_rating, estimate = .pred)
+```
+
+I will use a linear model with ridge regression to penalize extreme coefficients. I bootstrap the training data and use ```tune()``` to find the optimal value for ```penalty```.
+```{r}
+wf <- workflow() %>%
+  add_recipe(office_rec)
+
+office_boot <- bootstraps(office_train, strata = season)
+
+tune_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
+  set_engine("glmnet")
+
+lambda_grid <- grid_regular(penalty(), levels = 50)
+
+lasso_grid <- tune_grid(
+  wf %>% add_model(tune_spec),
+  resamples = office_boot,
+  grid = lambda_grid)
+```
+
+make sure model is using normalized data
+```{r}
+wf %>%
+  add_model(tune_spec) %>% 
+  fit(office_train) %>% 
+  pull_workflow_prepped_recipe()
+```
+
+```lowest_rmse``` finds the ```penalty``` value that gives the lowest RMSE. This graph shows that increasing the penalty increases model performance up to a point.
+```{r}
+lowest_rmse <- lasso_grid %>%
+  select_best("rmse")
+
+#graph metrics
+lasso_grid %>%
+  collect_metrics() %>%
+  ggplot(aes(penalty, mean, color = .metric, fill = .metric)) +
+  geom_ribbon(aes(ymin = mean - std_err,
+                  ymax = mean + std_err),
+              alpha = 0.5) +
+  geom_line(size = 1.5) +
+  geom_vline(xintercept = pull(lowest_rmse), linetype = 2) +
+  facet_wrap(~.metric, scales = "free", nrow = 2) +
+  scale_x_log10() +
+  labs(title = "Ridge regression lambda values") +
+  theme(legend.position = "none")
+```
+
+This fits the model with the best value for ```penalty```.
+```{r}
+final_lasso <- finalize_workflow(wf %>% add_model(tune_spec), lowest_rmse)
+```
+
+graph fit
+```{r}
+final_lasso %>% 
+  fit(office_train) %>% 
+  predict(office_train) %>% 
+  bind_cols(office_train) %>% 
+  metrics(truth = imdb_rating, estimate = .pred)
+```
+
+```{r}
+final_lasso %>% 
+  fit(office_train) %>% 
+  predict(office_train) %>% 
+  bind_cols(office_train) %>% 
+  #metrics(truth = imdb_rating, estimate = .pred) %>% 
+  ggplot(aes(imdb_rating, .pred)) +
+    geom_abline(linetype = 2) +
+    geom_point(alpha = .2) +
+    geom_smooth() +
+    coord_equal()
+```
+
+Splitting the data by season shows that the model predicted ```imdb_rating``` reasonably well for most seasons. It overstimated season 1 and underestimated season 3.
+```{r}
+final_lasso %>% 
+  fit(office_train) %>% 
+  predict(office_train) %>% 
+  bind_cols(office_train) %>% 
+  separate(episode_id, into = c("season", "episode"), sep = "_") %>% 
+  mutate(.resid = imdb_rating - .pred) %>% 
+  select(season, episode, .resid) %>% 
+  ggplot(aes(season, .resid)) +
+    geom_boxplot() +
+    geom_hline(yintercept = 0, linetype = 2, color = "red")
+```
+
+Graph variable importance
+```{r}
+df_vi <- final_lasso %>%
+  fit(office_train) %>%
+  pull_workflow_fit() %>%
+  vi(lambda = lowest_rmse$penalty) %>%
+  mutate(Variable = case_when(str_detect(Variable, "writer|director|cast") ~ Variable,
+                              TRUE ~ str_c("other_", Variable))) %>% 
+  mutate(Variable = fct_reorder(Variable, Importance)) %>%
+  separate(Variable, sep = "_", into = c("role", "person"), extra = "merge") %>% 
+  mutate(person = str_replace_all(person, "_", " "))
+
+df_vi %>% 
+  mutate(person = tidytext::reorder_within(x = person, by = Importance, within = role)) %>% 
+  ggplot(aes(x = Importance, y = person, fill = Importance)) +
+  geom_col(color = "black") +
+  facet_wrap(~role, scales = "free_y") +
+  scale_fill_viridis_c() +
+  scale_y_reordered() +
+  labs(y = NULL)
+```
+The high values for "Everyone" and "All" show that scenes where the entire office is involved are highly associated with increased ratings.
+
+Splitting the model inputs by role means I can compare how impactful a person was across roles. For example, the showrunner Greg Daniels was relatively more important as as writer than a director.
+```{r}
+df_vi %>%  
+  filter(person == "Greg Daniels")
+```
+
+Rainn Wilson was much more important as a cast member than as a director.
+```{r}
+df_vi %>% 
+  filter(person == "Dwight" | person == "Rainn Wilson")
+```
+
+Finally, this tests how the model performs on test data that it has not seen. I think this is reasonably good, considering that TV show quality is driven by chemistry between the cast, which is hard to quantify.
+```{r}
+last_fit(final_lasso, office_split) %>%
+  collect_metrics()
+```
