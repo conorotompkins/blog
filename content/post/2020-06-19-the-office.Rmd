@@ -202,7 +202,7 @@ df_characters <- df_characters %>%
   count(season, episode, character, name = "line_count")
 ```
 
-This selects only the characters that were involved in more than 20 episodes and pivots the data wide.
+This selects only the characters that were involved in more than 20 episodes and pivots the data wide. The value in each character column shows how many lines they had in the episode.
 ```{r}
 df_top_characters <- df_characters %>% 
   count(character, sort = TRUE) %>% 
@@ -329,7 +329,7 @@ final_ridge %>%
 ```
 
 This graph shows the variable importance, split by role:
-```{r}
+```{r fig.height=10, fig.width=7}
 df_vi <- final_ridge %>%
   fit(office_train) %>%
   pull_workflow_fit() %>%
