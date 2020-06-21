@@ -329,7 +329,7 @@ final_ridge %>%
 ```
 
 This graph shows the variable importance, split by role:
-```{r fig.height=10, fig.width=7}
+```{r fig.height=12, fig.width=9}
 df_vi <- final_ridge %>%
   fit(office_train) %>%
   pull_workflow_fit() %>%
