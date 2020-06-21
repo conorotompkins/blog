@@ -8,6 +8,10 @@ categories:
 tags: []
 ---
 
+to do
+* change lasso to ridge
+* finalize narrative
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
@@ -59,8 +63,6 @@ The boxplot shows that ```season``` may have an impact on the rating, so I will 
 df %>% 
   distinct(air_date, season, imdb_rating) %>% 
   ggplot(aes(air_date, imdb_rating, fill = as.factor(season))) +
-    # geom_point() +
-    # geom_smooth(aes(group = 1), color = "black") +
     geom_boxplot() +
     labs(x = "Air date",
          y = "IMDB rating",
@@ -194,7 +196,7 @@ df_top_characters <- df_characters %>%
   select(character)
 
 df_characters_main <- df_characters %>% 
-  semi_join(df_top_cast) %>% 
+  semi_join(df_top_characters) %>% 
   pivot_wider(id_cols = c(season, episode), 
               names_from = character, 
               names_prefix = "cast_", 
@@ -240,22 +242,22 @@ office_prep <- office_rec %>%
 
 The first model I create will be a linear model with ridge regression. This penalizes extreme model coefficients...
 ```{r eval=FALSE}
-lasso_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
+ridge_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
   set_engine("glmnet")
 
 wf <- workflow() %>%
   add_recipe(office_rec)
 
-lasso_fit <- wf %>%
-  add_model(lasso_spec) %>%
+ridge_fit <- wf %>%
+  add_model(ridge_spec) %>%
   fit(data = office_train)
 
-lasso_fit %>%
+ridge_fit %>%
   pull_workflow_fit() %>%
   tidy()
 
 #need to add metrics
-lasso_fit %>%
+ridge_fit %>%
   pull_workflow_fit() %>% 
   predict(office_test) %>% 
   bind_cols(office_test) %>% 
@@ -274,7 +276,7 @@ tune_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
 
 lambda_grid <- grid_regular(penalty(), levels = 50)
 
-lasso_grid <- tune_grid(
+ridge_grid <- tune_grid(
   wf %>% add_model(tune_spec),
   resamples = office_boot,
   grid = lambda_grid)
@@ -290,11 +292,11 @@ wf %>%
 
 ```lowest_rmse``` finds the ```penalty``` value that gives the lowest RMSE. This graph shows that increasing the penalty increases model performance up to a point.
 ```{r}
-lowest_rmse <- lasso_grid %>%
+lowest_rmse <- ridge_grid %>%
   select_best("rmse")
 
 #graph metrics
-lasso_grid %>%
+ridge_grid %>%
   collect_metrics() %>%
   ggplot(aes(penalty, mean, color = .metric, fill = .metric)) +
   geom_ribbon(aes(ymin = mean - std_err,
@@ -310,12 +312,12 @@ lasso_grid %>%
 
 This fits the model with the best value for ```penalty```.
 ```{r}
-final_lasso <- finalize_workflow(wf %>% add_model(tune_spec), lowest_rmse)
+final_ridge <- finalize_workflow(wf %>% add_model(tune_spec), lowest_rmse)
 ```
 
 graph fit
 ```{r}
-final_lasso %>% 
+final_ridge %>% 
   fit(office_train) %>% 
   predict(office_train) %>% 
   bind_cols(office_train) %>% 
@@ -323,11 +325,10 @@ final_lasso %>%
 ```
 
 ```{r}
-final_lasso %>% 
+final_ridge %>% 
   fit(office_train) %>% 
   predict(office_train) %>% 
   bind_cols(office_train) %>% 
-  #metrics(truth = imdb_rating, estimate = .pred) %>% 
   ggplot(aes(imdb_rating, .pred)) +
     geom_abline(linetype = 2) +
     geom_point(alpha = .2) +
@@ -337,7 +338,7 @@ final_lasso %>%
 
 Splitting the data by season shows that the model predicted ```imdb_rating``` reasonably well for most seasons. It overstimated season 1 and underestimated season 3.
 ```{r}
-final_lasso %>% 
+final_ridge %>% 
   fit(office_train) %>% 
   predict(office_train) %>% 
   bind_cols(office_train) %>% 
@@ -351,7 +352,7 @@ final_lasso %>%
 
 Graph variable importance
 ```{r}
-df_vi <- final_lasso %>%
+df_vi <- final_ridge %>%
   fit(office_train) %>%
   pull_workflow_fit() %>%
   vi(lambda = lowest_rmse$penalty) %>%
@@ -386,6 +387,6 @@ df_vi %>%
 
 Finally, this tests how the model performs on test data that it has not seen. I think this is reasonably good, considering that TV show quality is driven by chemistry between the cast, which is hard to quantify.
 ```{r}
-last_fit(final_lasso, office_split) %>%
+last_fit(final_ridge, office_split) %>%
   collect_metrics()
 ```
