@@ -40,11 +40,9 @@ The goal for this analysis is to determine which characters, directors, and writ
 
 The steps in the analysis are:
 * organize the data
-** split by director, writer, and cast
+** split by role (director, writer, and cast)
 * clean up the data
 * model the data
-** initial naive model
-** bootstrapped model
 * review model output and performance
 
 The first step is to download the data from the ```{shrute}``` package. The data is organized by season/episode/line, which is useful for analyzing characters, but not writers or directors.
@@ -83,14 +81,14 @@ df_imdb <- df %>%
 
 ### Directors
 
-Some episodes have more than one director, so I separate them into separate rows.
+Some episodes have more than one director, so I move them into separate rows.
 ```{r}
 df_directors <- df %>% 
   distinct(season, episode, director) %>% 
   separate_rows(director, sep = ";")
 ```
 
-The original data contains mispellings of director names, which will cause issues when I filter out less common directors. This code fixes those mispellings.
+The original data contains misspellings of director names, which will cause issues when I filter out less common directors. This code fixes those misspellings.
 ```{r}
 df_director_fix <- tibble(director_good = c("Charles McDougall",
                                             "Claire Scanlon",
@@ -111,7 +109,7 @@ df_directors <- df_directors %>%
   select(-director_good)
 ```
 
-This selects only directors that were involved in more than 2 episodes.
+This cleans up the director names and selects only directors that were involved in more than 2 episodes.
 ```{r}
 df_directors <- df_directors %>%  
   mutate(director = str_remove_all(director, "\\."),
@@ -240,7 +238,7 @@ office_prep <- office_rec %>%
   prep(strings_as_factors = FALSE)
 ```
 
-The first model I create will be a linear model with ridge regression. This penalizes extreme model coefficients...
+The first model I create will be a linear model with ridge regression. This penalizes extreme model coefficients.
 ```{r eval=FALSE}
 ridge_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
   set_engine("glmnet")
@@ -271,7 +269,7 @@ wf <- workflow() %>%
 
 office_boot <- bootstraps(office_train, strata = season)
 
-tune_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
+tune_spec <- linear_reg(penalty = tune(), mixture = 0) %>%
   set_engine("glmnet")
 
 lambda_grid <- grid_regular(penalty(), levels = 50)
@@ -371,7 +369,7 @@ df_vi %>%
   scale_y_reordered() +
   labs(y = NULL)
 ```
-The high values for "Everyone" and "All" show that scenes where the entire office is involved are highly associated with increased ratings.
+Phyllis is the cast MVP, based on this model. The high values for "Everyone" and "All" show that scenes where the entire office is involved are highly associated with increased ratings. Carell The model has a dim view of Nellie and the later seasons of the show in general. The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.
 
 Splitting the model inputs by role means I can compare how impactful a person was across roles. For example, the showrunner Greg Daniels was relatively more important as as writer than a director.
 ```{r}
