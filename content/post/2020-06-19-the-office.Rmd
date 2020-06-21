@@ -305,7 +305,9 @@ final_ridge %>%
     geom_abline(linetype = 2) +
     geom_point(alpha = .2) +
     geom_smooth() +
-    coord_equal()
+    coord_equal() +
+    labs(x = "IMDB rating",
+         y = "Predicted rating")
 ```
 
 Examining the data by season shows that the model predicted ```imdb_rating``` reasonably well for most seasons. It overstimated season 1 and underestimated season 3.
@@ -319,7 +321,9 @@ final_ridge %>%
   select(season, episode, .resid) %>% 
   ggplot(aes(season, .resid)) +
     geom_boxplot() +
-    geom_hline(yintercept = 0, linetype = 2, color = "red")
+    geom_hline(yintercept = 0, linetype = 2, color = "red") +
+    labs(y = "Residual",
+         title = "Actual minus predicted rating")
 ```
 
 This graph shows the variable importance, split by role:

@@ -364,7 +364,9 @@ ridge_grid %&gt;%
     geom_abline(linetype = 2) +
     geom_point(alpha = .2) +
     geom_smooth() +
-    coord_equal()</code></pre>
+    coord_equal() +
+    labs(x = &quot;IMDB rating&quot;,
+         y = &quot;Predicted rating&quot;)</code></pre>
 <p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
 <p>Examining the data by season shows that the model predicted <code>imdb_rating</code> reasonably well for most seasons. It overstimated season 1 and underestimated season 3.</p>
 <pre class="r"><code>final_ridge %&gt;% 
@@ -376,7 +378,9 @@ ridge_grid %&gt;%
   select(season, episode, .resid) %&gt;% 
   ggplot(aes(season, .resid)) +
     geom_boxplot() +
-    geom_hline(yintercept = 0, linetype = 2, color = &quot;red&quot;)</code></pre>
+    geom_hline(yintercept = 0, linetype = 2, color = &quot;red&quot;) +
+    labs(y = &quot;Residual&quot;,
+         title = &quot;Actual minus predicted rating&quot;)</code></pre>
 <p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-20-1.png" width="672" /></p>
 <p>This graph shows the variable importance, split by role:</p>
 <pre class="r"><code>df_vi &lt;- final_ridge %&gt;%
