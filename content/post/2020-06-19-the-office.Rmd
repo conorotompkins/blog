@@ -10,7 +10,6 @@ tags: []
 
 to do
 
-* change lasso to ridge
 * finalize narrative
 
 ```{r setup, include=FALSE}
@@ -47,7 +46,16 @@ The steps in the analysis are:
 * model the data
 * review model output and performance
 
-The first step is to download the data from the ```{shrute}``` package. The data is organized by season/episode/line, which is useful for analyzing characters, but not writers or directors.
+I use these variables in the model:
+
+* season
+* was the episode a season premier
+* was the episode a season finale
+* was a given director involved in the episode
+* was a given writer involved in the episode
+* how many lines did each character have in the episode
+
+The first step is to download the data from the ```{schrute}``` package. The data is organized by season/episode/line, which is useful for analyzing characters, but not writers or directors.
 ```{r}
 df <- schrute::theoffice %>% 
   as_tibble() %>% 
@@ -66,7 +74,7 @@ df %>%
     geom_boxplot() +
     labs(x = "Air date",
          y = "IMDB rating",
-         color = "Season") +
+         fill = "Season") +
     theme(legend.position = "bottom")
 ```
 
@@ -79,6 +87,8 @@ df_imdb <- df %>%
          flag_finale = episode == last(episode)) %>% 
   ungroup() %>% 
   mutate(across(contains("flag"), as.numeric))
+
+glimpse(df_imdb)
 ```
 
 ### Directors
@@ -264,14 +274,6 @@ ridge_grid <- tune_grid(
   wf %>% add_model(tune_spec),
   resamples = office_boot,
   grid = lambda_grid)
-```
-
-make sure model is using normalized data
-```{r}
-wf %>%
-  add_model(tune_spec) %>% 
-  fit(office_train) %>% 
-  pull_workflow_prepped_recipe()
 ```
 
 ```lowest_rmse``` finds the ```penalty``` value that gives the lowest RMSE. This graph shows that increasing the penalty increases model performance up to a point.
