@@ -1,7 +1,7 @@
 ---
 title: (re)Modeling The Office
 author: Conor Tompkins
-date: '2020-06-19'
+date: '2020-06-21'
 slug: the-office
 categories:
   - R
@@ -10,6 +10,33 @@ tags: []
 
 
 
+<p>The goal for this analysis is to determine which characters, directors, and writers from The Office most influence an episode’s IMDB rating. My hypothesis is that IMDB rating is largely driven by a few show personnel. I also briefly walk through the data cleaning and modeling processes. This analysis is based on code from Julia Silge’s <a href="https://juliasilge.com/blog/lasso-the-office/">Tidy Tuesdays</a> writeup She does a very good job of explaining the modeling aspects of this. She uses LASSO regression, which is very similar to the ridge regression I use.</p>
+<div id="tldr" class="section level3">
+<h3>TLDR</h3>
+<p>This is what my model thought was important. Keep reading to see the step-by-step.</p>
+<p><img src="/post/2020-06-19-the-office_files/the_office_vi.png" style="width:80.0%;height:80.0%" /></p>
+<p>The steps in the analysis are:</p>
+<ul>
+<li>organize the data
+<ul>
+<li>split by role (director, writer, and character)</li>
+</ul></li>
+<li>clean up the data</li>
+<li>model the data</li>
+<li>review model output and performance</li>
+</ul>
+<p>I use these variables in the model:</p>
+<ul>
+<li>season</li>
+<li>was the episode a season premier</li>
+<li>was the episode a season finale</li>
+<li>was a given director involved in the episode</li>
+<li>was a given writer involved in the episode</li>
+<li>how many lines did each character have in the episode</li>
+</ul>
+</div>
+<div id="setup" class="section level3">
+<h3>Setup</h3>
 <pre class="r"><code>library(tidyverse)
 library(lubridate)
 library(tidytext)
@@ -25,26 +52,6 @@ options(scipen = 999, digits = 2)
 theme_set(theme_bw())
 
 set.seed(1234)</code></pre>
-<p>The goal for this analysis is to determine which characters, directors, and writers from The Office most influence an episode’s IMDB rating. My hypothesis is that IMDB rating is largely driven by a few show personnel.</p>
-<p>The steps in the analysis are:</p>
-<ul>
-<li>organize the data
-<ul>
-<li>split by role (director, writer, and cast)</li>
-</ul></li>
-<li>clean up the data</li>
-<li>model the data</li>
-<li>review model output and performance</li>
-</ul>
-<p>I use these variables in the model:</p>
-<ul>
-<li>season</li>
-<li>was the episode a season premier</li>
-<li>was the episode a season finale</li>
-<li>was a given director involved in the episode</li>
-<li>was a given writer involved in the episode</li>
-<li>how many lines did each character have in the episode</li>
-</ul>
 <p>The first step is to download the data from the <code>{schrute}</code> package. The data is organized by season/episode/line, which is useful for analyzing characters, but not writers or directors.</p>
 <pre class="r"><code>df &lt;- schrute::theoffice %&gt;% 
   as_tibble() %&gt;% 
@@ -65,6 +72,7 @@ glimpse(df)</code></pre>
 ## $ imdb_rating      &lt;dbl&gt; 7.6, 7.6, 7.6, 7.6, 7.6, 7.6, 7.6, 7.6, 7.6, 7.6, 7.…
 ## $ total_votes      &lt;int&gt; 3706, 3706, 3706, 3706, 3706, 3706, 3706, 3706, 3706…
 ## $ air_date         &lt;date&gt; 2005-03-24, 2005-03-24, 2005-03-24, 2005-03-24, 200…</code></pre>
+</div>
 <div id="basic-eda" class="section level2">
 <h2>Basic EDA</h2>
 <p>The boxplot shows that <code>season</code> may have an impact on the rating, so I will include that in the model.</p>
@@ -320,6 +328,9 @@ office_test &lt;- testing(office_split)</code></pre>
 
 office_prep &lt;- office_rec %&gt;%
   prep(strings_as_factors = FALSE)</code></pre>
+</div>
+<div id="modeling" class="section level2">
+<h2>Modeling</h2>
 <p>I will use a linear model with ridge regression to penalize extreme coefficients. I bootstrap the training data and use <code>tune()</code> to find the optimal value for <code>penalty</code>.</p>
 <pre class="r"><code>wf &lt;- workflow() %&gt;%
   add_recipe(office_rec)
@@ -335,7 +346,7 @@ ridge_grid &lt;- tune_grid(
   wf %&gt;% add_model(tune_spec),
   resamples = office_boot,
   grid = lambda_grid)</code></pre>
-<p><code>lowest_rmse</code> finds the <code>penalty</code> value that gives the lowest RMSE. This graph shows that increasing the penalty increases model performance up to a point.</p>
+<p><code>lowest_rmse</code> searches through the bootstrapped models to find the <code>penalty</code> that gives the lowest RMSE (root mean squared error). This graph shows that increasing the penalty increases performance, but has diminishing returns.</p>
 <pre class="r"><code>lowest_rmse &lt;- ridge_grid %&gt;%
   select_best(&quot;rmse&quot;)
 
@@ -355,6 +366,8 @@ ridge_grid %&gt;%
 <p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
 <p>This fits the model with the best value for <code>penalty</code>.</p>
 <pre class="r"><code>final_ridge &lt;- finalize_workflow(wf %&gt;% add_model(tune_spec), lowest_rmse)</code></pre>
+<div id="assess-model" class="section level3">
+<h3>Assess model</h3>
 <p>The model generally overrates episodes with low ratings and underrates episodes with high ratings.</p>
 <pre class="r"><code>final_ridge %&gt;% 
   fit(office_train) %&gt;% 
@@ -402,7 +415,16 @@ df_vi %&gt;%
   scale_y_reordered() +
   labs(y = NULL)</code></pre>
 <p><img src="/post/2020-06-19-the-office_files/figure-html/unnamed-chunk-21-1.png" width="960" /></p>
-<p>Phyllis is the cast MVP, based on this model. The high values for “Everyone” and “All” show that scenes where the entire office is involved are highly associated with increased ratings. Carell’s directorship is significantly more important than the other directors. The model has a dim view of Nellie and the later seasons of the show in general. The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.</p>
+<p>The importance of characters is much more evenly distributed than I thought it would be. Phyllis is the cast MVP, based on this model. The character isn’t usually the focus of an episode, but when she has a lot of lines, the episode gets better ratings.
+<img src="https://media.giphy.com/media/B8kBi8Ssveays/giphy.gif" /></p>
+<p>The high values for “Everyone” and “All” show that scenes where the entire office is involved are highly associated with increased ratings.
+<img src="https://media.giphy.com/media/UAHZijO91QCl2/giphy.gif" /></p>
+<p>I’m impressed by the high ratings for Michael and Jim, who carried a lot of the workload in terms of lines delivered. Despite this, the model still considers the number of lines they deliver to be important. Pam is the other side of this coin. That character is a constant in the show and typically has a lot of lines, but the model doesn’t think the number of lines the character delivers is important.</p>
+<p>Carell’s directorship is significantly more important than the other directors. I was definitely surprised by this, since Carell only directed a few episodes, and I expected the ridge regression to penalize his director coefficient heavily.</p>
+<p>The model has a dim view of Nellie and Robert, who were brought in fill the gap left by Carell’s departure from the show.
+<img src="https://media.giphy.com/media/d10dMmzqCYqQ0/giphy.gif" /></p>
+<p>The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.</p>
+<p>In the “other” variables, the model thinks the show gets lower ratings as the seasons go on. My hypothesis for the negative importance for the season premier/finale flags is that people had higher expectations for these episodes, which the episodes may not have met.</p>
 <p>Splitting the model inputs by role means I can compare how impactful a person was across roles. For example, the showrunner Greg Daniels was relatively more important as as writer than a director.</p>
 <pre class="r"><code>df_vi %&gt;%  
   filter(person == &quot;Greg Daniels&quot;)</code></pre>
@@ -419,6 +441,7 @@ df_vi %&gt;%
 ##   &lt;chr&gt;    &lt;chr&gt;             &lt;dbl&gt; &lt;chr&gt;
 ## 1 cast     Dwight           0.0212 POS  
 ## 2 director Rainn Wilson    -0.0206 NEG</code></pre>
+<p><img src="https://media.giphy.com/media/s3d5ugcxFDApG/giphy.gif" /></p>
 <p>Finally, this tests how the model performs on test data that it has not seen. I think this is reasonably good, considering that TV show quality is driven by chemistry between the cast, which is hard to quantify.</p>
 <pre class="r"><code>last_fit(final_ridge, office_split) %&gt;%
   collect_metrics()</code></pre>
@@ -427,4 +450,6 @@ df_vi %&gt;%
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
 ## 1 rmse    standard       0.467
 ## 2 rsq     standard       0.204</code></pre>
+<p><img src="https://media.giphy.com/media/8VrtCswiLDNnO/giphy.gif" /></p>
+</div>
 </div>
