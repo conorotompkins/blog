@@ -9,6 +9,7 @@ tags: []
 ---
 
 to do
+
 * change lasso to ridge
 * finalize narrative
 
@@ -39,8 +40,9 @@ set.seed(1234)
 The goal for this analysis is to determine which characters, directors, and writers from The Office most influence an episode's IMDB rating. My hypothesis is that IMDB rating is largely driven by a few show personnel.
 
 The steps in the analysis are:
+
 * organize the data
-** split by role (director, writer, and cast)
+  + split by role (director, writer, and cast)
 * clean up the data
 * model the data
 * review model output and performance
@@ -126,7 +128,9 @@ df_directors <- df_directors %>%
   mutate(flag = 1) %>% 
   pivot_wider(id_cols = c(season, episode), names_from = director, values_from = flag, values_fill = list(flag = 0))
 
-glimpse(df_directors)
+df_directors %>% 
+  select(1:20) %>% 
+  glimpse()
 ```
 
 ### Writers
@@ -149,7 +153,9 @@ df_writers <- df_writers %>%
   mutate(flag = 1) %>% 
   pivot_wider(id_cols = c(season, episode), names_from = writer, values_from = flag, values_fill = list(flag = 0))
 
-glimpse(df_writers)
+df_writers %>% 
+  select(1:20) %>% 
+  glimpse()
 ```
 
 ### Characters
@@ -201,7 +207,9 @@ df_characters_main <- df_characters %>%
               values_from = line_count, 
               values_fill = list(line_count = 0))
 
-glimpse(df_characters_main)
+df_characters_main %>% 
+  select(1:20) %>% 
+  glimpse()
 ```
 
 ## Prepare data for modeling
@@ -217,7 +225,9 @@ df_office <- df_imdb %>%
          across(contains("writer"), coalesce, 0)) %>% 
   select(-episode)
 
-glimpse(df_office)
+df_office %>% 
+  select(1:20) %>% 
+  glimpse()
 ```
 
 This splits the data into the training and testing sets that will be used to model the data. I stratify by ```season``` because it may have an effect on ```imdb_rating``` that I want to capture.
@@ -236,30 +246,6 @@ office_rec <- recipe(imdb_rating ~ ., data = office_train) %>%
 
 office_prep <- office_rec %>%
   prep(strings_as_factors = FALSE)
-```
-
-The first model I create will be a linear model with ridge regression. This penalizes extreme model coefficients.
-```{r eval=FALSE}
-ridge_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
-  set_engine("glmnet")
-
-wf <- workflow() %>%
-  add_recipe(office_rec)
-
-ridge_fit <- wf %>%
-  add_model(ridge_spec) %>%
-  fit(data = office_train)
-
-ridge_fit %>%
-  pull_workflow_fit() %>%
-  tidy()
-
-#need to add metrics
-ridge_fit %>%
-  pull_workflow_fit() %>% 
-  predict(office_test) %>% 
-  bind_cols(office_test) %>% 
-  metrics(truth = imdb_rating, estimate = .pred)
 ```
 
 I will use a linear model with ridge regression to penalize extreme coefficients. I bootstrap the training data and use ```tune()``` to find the optimal value for ```penalty```.
@@ -313,15 +299,7 @@ This fits the model with the best value for ```penalty```.
 final_ridge <- finalize_workflow(wf %>% add_model(tune_spec), lowest_rmse)
 ```
 
-graph fit
-```{r}
-final_ridge %>% 
-  fit(office_train) %>% 
-  predict(office_train) %>% 
-  bind_cols(office_train) %>% 
-  metrics(truth = imdb_rating, estimate = .pred)
-```
-
+The model generally overrates episodes with low ratings and underrates episodes with high ratings.
 ```{r}
 final_ridge %>% 
   fit(office_train) %>% 
@@ -334,7 +312,7 @@ final_ridge %>%
     coord_equal()
 ```
 
-Splitting the data by season shows that the model predicted ```imdb_rating``` reasonably well for most seasons. It overstimated season 1 and underestimated season 3.
+Examining the data by season shows that the model predicted ```imdb_rating``` reasonably well for most seasons. It overstimated season 1 and underestimated season 3.
 ```{r}
 final_ridge %>% 
   fit(office_train) %>% 
@@ -348,7 +326,7 @@ final_ridge %>%
     geom_hline(yintercept = 0, linetype = 2, color = "red")
 ```
 
-Graph variable importance
+This graph shows the variable importance, split by role:
 ```{r}
 df_vi <- final_ridge %>%
   fit(office_train) %>%
@@ -369,7 +347,8 @@ df_vi %>%
   scale_y_reordered() +
   labs(y = NULL)
 ```
-Phyllis is the cast MVP, based on this model. The high values for "Everyone" and "All" show that scenes where the entire office is involved are highly associated with increased ratings. Carell The model has a dim view of Nellie and the later seasons of the show in general. The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.
+
+Phyllis is the cast MVP, based on this model. The high values for "Everyone" and "All" show that scenes where the entire office is involved are highly associated with increased ratings. Carell's directorship is significantly more important than the other directors. The model has a dim view of Nellie and the later seasons of the show in general. The negative importance for Roy clearly means that the model is internally valid and cannot be improved upon.
 
 Splitting the model inputs by role means I can compare how impactful a person was across roles. For example, the showrunner Greg Daniels was relatively more important as as writer than a director.
 ```{r}
