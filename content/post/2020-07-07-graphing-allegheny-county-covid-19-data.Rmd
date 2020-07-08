@@ -84,8 +84,8 @@ df <- df %>%
                                 deaths_new >= 0 ~ deaths_new))
 ```
 
-This calculates rolling 14-day averages for cases/hospitalizations/deaths.
-```{r}
+This calculates rolling 14-day averages for new cases/hospitalizations/deaths.
+```{r fig.height=8, fig.width=12}
 #calculate rolling 14 day averages for cases/hospitalizations/deaths
 df <- df %>% 
   tq_mutate(
@@ -171,14 +171,14 @@ df_new <- df_new %>%
 ```
 
 These graphs show the rolling and daily new data:
-```{r}
+```{r fig.height=6, fig.width=10}
 #preview rolling data
 df_rolling %>% 
   ggplot(aes(date, value)) +
   geom_line() +
   facet_wrap(~metric, ncol = 1, scales = "free_y")
 ```
-```{r}
+```{r fig.height=6, fig.width=10}
 #preview daily data
 df_new %>% 
   ggplot(aes(date, value)) +
@@ -193,7 +193,7 @@ last_updated <- last(df_rolling$date)
 ```
 
 This creates the final graph. Since I pivoted the data longer, I can facet by `metric`, which lets me show cases/hospitalizations/deaths on separate y axes. I insert colored rectanges behind the data to show the stages of state intervention.
-```{r}
+```{r fig.height=8, fig.width=12}
 #make graph
 allegheny_county_timeline <- df_rolling %>% 
   filter(!is.na(value)) %>% 
