@@ -193,7 +193,7 @@ last_updated <- last(df_rolling$date)
 ```
 
 This creates the final graph. Since I pivoted the data longer, I can facet by `metric`, which lets me show cases/hospitalizations/deaths on separate y axes. I insert colored rectanges behind the data to show the stages of state intervention.
-```{r fig.height=8, fig.width=12}
+```{r fig.height=8, fig.width=10}
 #make graph
 allegheny_county_timeline <- df_rolling %>% 
   filter(!is.na(value)) %>% 
