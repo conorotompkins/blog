@@ -1,5 +1,5 @@
 ---
-title: Working with PayCheck Protection Program data in R
+title: Working with Paycheck Protection Program data in R
 author: Conor Tompkins
 date: '2020-07-08'
 slug: working-with-paycheck-protection-program-data-in-r
@@ -20,11 +20,13 @@ In this post, I walk through the process of reading in the data from the Paychec
 Load packages and set up environment:
 ```{r}
 library(tidyverse)
+library(sf)
+library(tigris)
 library(lubridate)
 library(janitor)
 library(hrbrthemes)
 
-theme_set(theme_ipsum())
+theme_set(theme_ipsum(base_size = 18))
 
 options(scipen = 999, digits = 4)
 ```
@@ -60,7 +62,11 @@ ppp <- ppp %>%
   separate(cd, into = c("state_2", "district"), remove = FALSE) %>% 
   #when district is blank, replace with NA
   mutate(district = case_when(district == "" ~ NA_character_,
-                          district != "" ~ district))
+                          district != "" ~ district)) %>% 
+  mutate(loan_range = str_trim(loan_range),
+         loan_range = str_sub(loan_range, 3, str_length(loan_range)),
+         loan_range = case_when(!str_detect(file_name, "150k plus") ~ "Under $150k",
+                                TRUE ~ loan_range))
 ```
 
 There are cases where the value in the `state` column doesn't match the state embedded in the congressional district `cd` column. 
@@ -102,32 +108,30 @@ ppp %>%
 I filter out the rows where the state doesn't match the congressional district.
 ```{r}
 ppp <- ppp %>% 
-  mutate(flag_match = state == state_2) %>% 
-  filter(flag_match == TRUE)
+  filter(state == state_2)
+```
+
+This shows that there are some negative values in `loan_amount`. I filter out those values.
+```{r}
+ppp %>% 
+  mutate(loan_type = loan_amount > 0) %>% 
+  count(loan_type)
+
+ppp <- ppp %>% 
+  filter(loan_amount > 0 | is.na(loan_amount))
 ```
 
 ## Analysis
+### Loan amount
 
-First, split the data into 2 buckets. For loans above $150k, the SBA binned the loan amount instead of reporting the actual value.
+The first step is to split the data into 2 buckets. For loans above $150k, the SBA binned the loan amount instead of reporting the actual value.
 ```{r}
 ppp_under_150 <- ppp %>% 
   filter(!str_detect(file_name, "150k plus"))
 
 ppp_over_150 <- ppp %>% 
-  filter(str_detect(file_name, "150k plus")) %>% 
-  mutate(loan_range = str_sub(loan_range, 3, str_length(loan_range))) %>% 
+  filter(str_detect(file_name, "150k plus")) %>%
   mutate(loan_range = fct_infreq(loan_range))
-```
-
-
-This shows that there are some missing and negative values in `loan_amount`. I filter out those values.
-```{r}
-ppp_under_150 %>% 
-  mutate(loan_type = loan_amount > 0) %>% 
-  count(loan_type)
-
-ppp_under_150 <- ppp_under_150 %>% 
-  filter(loan_amount > 0)
 ```
 
 Among loans less than 150k, most are less than 21k, and the distribution is very heavily skewed to the right. 
@@ -149,15 +153,12 @@ ppp_under_150 %>%
        y = "Number of loans",
        color = "Quantile")
 ```
+
 Loans under $150k make up the vast majority of all PPP loans.
 ```{r}
-ppp_under_150_count <- ppp_under_150 %>% 
-  mutate(loan_range = "Under $150,000") %>% 
-  count(loan_range)
-
-ppp_under_150_count %>% 
-  bind_rows(ppp_over_150 %>% count(loan_range)) %>% 
-  mutate(loan_range = fct_inorder(loan_range, n)) %>% 
+ppp %>% 
+  count(loan_range) %>%   
+  mutate(loan_range = fct_reorder(loan_range, n)) %>% 
   ggplot(aes(n, loan_range)) +
   geom_col() +
   labs(title = "SBA PPP Loans",
@@ -166,35 +167,51 @@ ppp_under_150_count %>%
        y = "Loan range") +
   scale_x_comma()
 ```
-Loan approvals peaked in late May 2020, and picked up in July.
+
+Loan approvals peaked in late April 2020 when the program began accepting applications for the second round, and picked up in July. There is extreme weekday-weekend seasonality in the data after April. The "U" shape from May to July generally coincides with the effort to "reopen" economies nationwide.
 ```{r}
 ppp %>% 
   count(date_approved) %>% 
   ggplot(aes(date_approved, n)) +
   geom_point() +
+  geom_vline(xintercept = ymd("2020-04-16"), linetype = 2) +
   labs(title = "SBA PPP Loans",
        x = NULL,
        y = "Number of loans") +
   scale_y_comma()
 ```
 
-Most states received similar proportions of small and large loans. Territories recieved more small loans and fewer large loans.
+This shows that bigger loans tended to be approved earlier in the program, which was a major criticism.
 ```{r}
-ppp_under_150_count_state <- ppp_under_150 %>% 
-  mutate(loan_range = "Under $150,000") %>% 
-  count(state, loan_range)
+ppp %>% 
+  count(date_approved, loan_range) %>% 
+  mutate(loan_range = fct_reorder(loan_range, n) %>% fct_rev) %>% 
+  group_by(date_approved) %>% 
+  mutate(pct_of_loans = n / sum(n)) %>% 
+  ungroup() %>% 
+  ggplot(aes(date_approved, pct_of_loans, fill = loan_range)) +
+  geom_area() +
+  scale_x_date(expand = c(0,0)) +
+  scale_y_percent(expand = c(0,0)) +
+  scale_fill_viridis_d() +
+  labs(title = "SBA PPP Loans",
+       subtitle = "% of loans approved on a date",
+       x = NULL,
+       y = "% of loans",
+       fill = "Loan range") +
+  theme(legend.position = "bottom")
+```
 
-state_loan_range <- ppp_under_150_count_state %>% 
-  bind_rows(ppp_over_150 %>% count(state, loan_range)) %>% 
-  mutate(loan_range = fct_inorder(loan_range, n)) %>% 
+Most states received similar proportions of small and large loans. Territories received more small loans and fewer large loans.
+```{r fig.height=15}
+ppp %>% 
+  mutate(loan_range = fct_inorder(loan_range)) %>% 
+  count(state, loan_range) %>% 
   group_by(state) %>% 
   mutate(pct_of_loans = n / sum(n)) %>% 
-  ungroup()
-
-state_loan_range %>% 
+  ungroup() %>% 
   filter(!is.na(state)) %>% 
-  mutate(loan_range = fct_rev(loan_range),
-         state = fct_reorder(state, n, .fun = sum)) %>% 
+  mutate(state = fct_reorder(state, n, .fun = sum)) %>% 
   ggplot(aes(pct_of_loans, state, fill = loan_range)) +
   geom_col() +
   scale_fill_viridis_d(direction = -1) +
@@ -203,43 +220,126 @@ state_loan_range %>%
        subtitle = "% of loan range by state",
        x = "% of loans",
        y = NULL,
+       fill = "Loan range") +
+  theme(legend.position = "bottom")
+```
+
+### Jobs
+
+Bigger loans tended to retain more jobs.
+```{r fig.height=10, fig.width=10}
+ppp %>% 
+  filter(!is.na(jobs_retained)) %>% 
+  mutate(loan_range = fct_inorder(loan_range) %>% fct_rev()) %>% 
+  ggplot(aes(jobs_retained, fill = loan_range)) +
+  #geom_histogram(bins = 200) +
+  geom_density() +
+  facet_wrap(~loan_range, ncol = 2, scales = "free") +
+  scale_x_comma() +
+  #scale_y_comma() +
+  scale_fill_viridis_d() +
+  labs(title = "SBA PPP Loan Program",
+       subtitle = "Jobs retained",
+       x = "Number of jobs retained",
+       y = "Density",
        fill = "Loan range")
 ```
 
-Bigger loans tended to be approved earlier in the program.
+The timeline of `jobs_retained` closely matches the trend of when loans were approved.
 ```{r}
-ppp_under_150_count_date <- ppp_under_150 %>% 
-  mutate(loan_range = "Under $150,000") %>% 
-  count(date_approved, loan_range)
-
-date_loan_range <- ppp_under_150_count_date %>% 
-  bind_rows(ppp_over_150 %>% count(date_approved, loan_range)) %>% 
-  mutate(loan_range = fct_inorder(loan_range, n)) %>% 
+ppp %>% 
+  filter(!is.na(jobs_retained)) %>% 
   group_by(date_approved) %>% 
-  mutate(pct_of_loans = n / sum(n)) %>% 
-  ungroup()
-
-date_loan_range %>% 
-  ggplot(aes(date_approved, pct_of_loans, fill = loan_range)) +
-  geom_area() +
-  scale_x_date(expand = c(0,0)) +
-  scale_y_percent(expand = c(0,0)) +
-  labs(title = "SBA PPP Loans",
+  summarize(jobs_retained = sum(jobs_retained)) %>% 
+  ungroup() %>% 
+  ggplot(aes(date_approved, jobs_retained)) +
+  geom_point() +
+  scale_y_comma() +
+  labs(title = "SBA PPP Loan Program",
+       subtitle = "Jobs Retained",
        x = NULL,
-       y = "% of loans",
-       fill = "Loan range")
+       y = "Jobs retained")
 ```
 
-### Map
+Among loans less than 150k and where the data was reported, the median loan retained 6 jobs per 50k spent. Systemic reporting bias probably makes this number less reliable.
 ```{r}
+ppp %>% 
+  filter(loan_range == "Under $150k",
+         !is.na(jobs_retained),
+         !is.na(loan_amount)) %>% 
+  select(jobs_retained, loan_amount) %>% 
+  mutate(jobs_retained_per_50k = (jobs_retained / loan_amount) * 50000) %>% 
+  summarize(jobs_retained_per_50k = median(jobs_retained_per_50k))
 ```
 
-
+In the same loan range, bigger loans generally meant more jobs retained.
 ```{r}
+test <- ppp %>% 
+  filter(loan_range == "Under $150k") %>% 
+  count(loan_amount, jobs_retained, sort = TRUE) %>%
+  slice(1:5000)
+
+test %>% 
+  ggplot(aes(loan_amount, jobs_retained, color = n)) +
+  geom_density_2d_filled() +
+  scale_x_comma(labels = scales::dollar) +
+  labs(title = "SBA PPP Loan Program",
+       subtitle = NULL,
+       x = "Loan amount",
+       y = "Jobs retained",
+       fill = "Density of observations")
 ```
 
+### Mapping the data
 
+The dataset identifies which federal congressional district the applicant is from. I use `tigris` to retrieve the shapefiles for the most recent districts.
+```{r include=FALSE}
+congress_districts <- suppressMessages(congressional_districts(cb = TRUE, resolution = "500k", year = 2018)) %>% 
+  st_as_sf() %>% 
+  clean_names() %>% 
+  filter(statefp == 42)
+```
+```{r eval=FALSE}
+congress_districts <- suppressMessages(congressional_districts(cb = TRUE, resolution = "500k", year = 2018)) %>% 
+  st_as_sf() %>% 
+  clean_names() %>% 
+  filter(statefp == 42)
+```
+
+This counts how many of each `loan_range` a `district` received. Note that there are missing values and what appear to be defunct district IDs in the `district` column.
+```{r fig.height=10}
+ppp_pa_districts_loan_range <- ppp %>% 
+  filter(state == "PA") %>% 
+  count(district, loan_range, sort = TRUE)
+
+ppp_pa_districts_loan_range %>% 
+  mutate(district = fct_explicit_na(district),
+         district = fct_reorder(district, n, .fun = sum),
+         loan_range = fct_rev(loan_range)) %>% 
+  ggplot(aes(n, district, fill = loan_range)) +
+  geom_col() +
+  scale_x_comma() +
+  scale_fill_viridis_d() +
+  labs(title = "SBA PPP Loan Program",
+       subtitle = "Pennsylvania",
+       x = "Number of loans",
+       y = "Congressional District",
+       fill =  "Loan range")
+```
+
+Districts in eastern Pennsylvania near Philadelphia received more loans from the program.
 ```{r}
+ppp_pa_districts <- ppp %>% 
+  filter(state == "PA") %>% 
+  count(district, sort = TRUE)
+
+congress_districts %>% 
+  right_join(ppp_pa_districts, by = c("cd116fp" = "district")) %>% 
+  ggplot() +
+  geom_sf(aes(fill = n)) +
+  scale_fill_viridis_c(option = "A", labels = scales::comma) +
+  labs(title = "SBA PPP Loan Program",
+       subtitle = "Pennsylvania",
+       fill = "Number of loans") +
+  theme_void()
 ```
-
-
