@@ -317,13 +317,13 @@ map_cluster %>%
   geom_sf(aes(fill = cluster_assignment, color = cluster_assignment),
           size = 1) +
   geom_sf(data = map, color = "grey", size = .1,  alpha = 0) +
-  # geom_sf_label(data = state_clustered, 
-  #               aes(label = cluster_assignment, color = cluster_assignment), 
-  #               alpha = .8,
-  #               size = 3,
-  #               show.legend = FALSE) +
   geom_sf_text(data = state_clustered, aes(label = cluster_assignment)) +
-  theme_void()
+  labs(fill = "Cluster assignment",
+       color = "Cluster assigmment") +
+  guides(color = FALSE) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.direction = "horizontal")
 ```
 
 
