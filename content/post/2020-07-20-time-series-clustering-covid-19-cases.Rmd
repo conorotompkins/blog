@@ -9,14 +9,14 @@ tags:
   - COVID
 ---
 
-This post will be about clustering COVID-19 case data. The goal is to group states into clusters based on the state's cumulative sum of COVID-19 cases.
+The goal of this post is to group states into clusters based on the shape of the curve of a state's cumulative sum of COVID-19 cases. This type of clustering is useful when the variance in absolute values of a time series obscures the underlying pattern in the data.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE)
 ```
 
-Load the packages I will use in the analysis and set up the environment:
+This loads the packages I will use in the analysis and set up the environment:
 ```{r}
 library(tidyverse)
 library(tsibble)
@@ -99,8 +99,8 @@ The result of this is that the clustering algorithm will focus on the *shape* of
 covid %>% 
   pivot_longer(cols = contains("cases"), names_to = "metric", values_to = "value") %>% 
   ggplot(aes(days_since_10th_case, value, group = state)) +
-  geom_line(alpha = .4) +
   geom_hline(yintercept = 0, linetype = 2) +
+  geom_line(alpha = .1) +
   facet_wrap(~metric, ncol = 1, scales = "free_y") +
   scale_y_comma()
 ```
@@ -132,15 +132,9 @@ for (i in 2:kclust){
 }
 ```
 
-The object that `tsclust` outputs has a complex structure that makes it difficult to work with at scale. The data I need to pull out is stored in various slots:
-```{r eval = FALSE}
-slotNames(cluster_dtw_h[[2]])
-```
-```{r eval = FALSE}
-str(cluster_dtw_h[[2]])
-```
+The object that `tsclust` outputs has a complex structure that makes it difficult to work with at scale. The data I need to pull out is stored in various slots. The next step is to write functions that pulls out the data and tidies it up.
 
-The next step is to write functions that pulls out the data and tidies it up.
+### Cluster assigments
 
 This function pulls which cluster each state was assigned to, for each `kclust`.
 ```{r eval = FALSE}
@@ -172,7 +166,7 @@ glimpse(cluster_assignments)
 ```
 
 These graphs shows which states are more likely to be assigned to a different cluster, depending on the number of clusters.
-```{r}
+```{r fig.height=12}
 state_variance <- cluster_assignments %>% 
   distinct(state, cluster_assignment) %>% 
   count(state, sort = TRUE)
@@ -183,17 +177,20 @@ cluster_assignments %>%
   ggplot(aes(kclust, state, fill = as.factor(cluster_assignment))) +
   geom_tile() +
   scale_fill_viridis_d() +
-  labs(fill = "Cluster assignment") +
+  labs(fill = "Cluster assignment",
+       y = NULL) +
   theme(legend.position = "bottom", legend.direction = "horizontal")
 ```
-```{r}
+```{r fig.height=12}
 cluster_assignments %>% 
   distinct(state, cluster_assignment) %>% 
   count(state) %>% 
   mutate(state = fct_reorder(state, n)) %>% 
   ggplot(aes(n, state)) +
   geom_col() +
-  labs(title = "How much does each state react to a change in kclust?")
+  labs(title = "How much each state reacts to an increase in kclust",
+       x = "Number of clusters a state appears in",
+       y = NULL)
 ```
 
 The number of singelton clusters (clusters with only one state) is an important metric for determining the optimal number of clusters. If a state is truly unique, a singleton cluster may be appropriate. Having 50 singleton clusters, however, would obviously be overfit.
@@ -204,7 +201,6 @@ cluster_singletons <- cluster_assignments %>%
   count(kclust, cluster_assignment) %>% 
   group_by(kclust) %>% 
   mutate(min_cluster_population = min(n)) %>% 
-  ungroup() %>% 
   filter(n == min_cluster_population) %>% 
   ungroup() %>% 
   select(kclust, min_cluster_population, n) %>% 
@@ -215,7 +211,10 @@ cluster_singletons <- cluster_assignments %>%
 cluster_singletons %>% 
   filter(min_cluster_population == 1) %>% 
   ggplot(aes(kclust, n)) +
-  geom_line()
+  geom_line() +
+  scale_x_comma() +
+  labs(x = "kclust",
+       y = "Number of singleton clusters")
 ```
 
 There is not a singleton cluster until `kclust` is 8.
@@ -224,7 +223,7 @@ cluster_singletons %>%
   mutate(first_singleton = cumsum(min_cluster_population == 1) == 1) %>%
   filter(first_singleton == TRUE)
 ```
-```{r}
+```{r eval=FALSE, include=FALSE}
 cluster_assignments %>% 
   count(kclust, cluster_assignment) %>% 
   ggplot(aes(kclust, n, color = as.factor(kclust))) +
@@ -233,6 +232,8 @@ cluster_assignments %>%
   labs(y = "Cluster population")
 ```
 
+
+### Cluster distance
 
 This function pulls the average distance of each cluster, for each value of `kclust`. Clusters with lower average distance are more similar, and those with higher average distance are less similar.
 ```{r eval = FALSE}
@@ -257,8 +258,16 @@ cluster_metrics %>%
   scale_size_continuous(range = c(.5, 4)) +
   labs(y = "Average distance")
 ```
+```{r eval=FALSE, include=FALSE}
+cluster_metrics %>% 
+  group_by(kclust) %>% 
+  summarize(singleton_count = sum(size == 1),
+             median_av_dist = median(av_dist)) %>% 
+  ggplot(aes(singleton_count, median_av_dist)) +
+  geom_jitter()
+```
 
-This shows what the individual state time series data looks like when it is grouped into 11 clusters:
+This shows what the individual state time series data looks like when it is grouped into 12 clusters:
 ```{r}
 best_kclust <- 12
 
@@ -270,12 +279,12 @@ covid %>%
          cluster_assignment = fct_rev(cluster_assignment)) %>% 
   ggplot(aes(days_since_10th_case, cases_per_capita_scaled, 
              color = cluster_assignment, group = state)) +
-    geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
   geom_vline(xintercept = 60, linetype = 2) +
-  geom_line(size = 2, alpha = .3) +
+  geom_line(size = 1.5, alpha = .5) +
   facet_wrap(~cluster_assignment, ncol = 4) +
   guides(color = FALSE) +
-  labs(title = "Kclust == 12")
+  labs(title = "kclust == 12")
 ```
 
 I think 12 clusters is appropriate, but there are obviously cases where individual assignments can be disputed. This is a supervised clustering problem, so I generally pick the `kclust` with the least diminishing returns and go with it.
@@ -316,7 +325,6 @@ map_cluster %>%
   ggplot() +
   geom_sf(aes(fill = cluster_assignment, color = cluster_assignment),
           size = 1) +
-  geom_sf(data = map, color = "grey", size = .1,  alpha = 0) +
   geom_sf_text(data = state_clustered, aes(label = cluster_assignment)) +
   labs(fill = "Cluster assignment",
        color = "Cluster assigmment") +
@@ -325,9 +333,7 @@ map_cluster %>%
   theme(legend.position = "bottom",
         legend.direction = "horizontal")
 ```
-
-
-```{r}
+```{r eval=FALSE, include=FALSE}
 cluster_assignments %>% 
   filter(kclust == best_kclust) %>% 
   count(cluster_assignment, sort = TRUE) %>% 
@@ -338,6 +344,7 @@ cluster_assignments %>%
 ```
 
 ### Sources
-https://rpubs.com/esobolewska/dtw-time-series
-http://www.rdatamining.com/examples/time-series-clustering-classification
-http://rstudio-pubs-static.s3.amazonaws.com/398402_abe1a0343a4e4e03977de8f3791e96bb.html
+
+* https://rpubs.com/esobolewska/dtw-time-series
+* http://www.rdatamining.com/examples/time-series-clustering-classification
+* http://rstudio-pubs-static.s3.amazonaws.com/398402_abe1a0343a4e4e03977de8f3791e96bb.html
