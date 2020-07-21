@@ -343,6 +343,10 @@ cluster_assignments %>%
   geom_col(color = "black", show.legend = FALSE)
 ```
 
+Cluster 3 stands out as the group of states that are currently struggling with COVID-19 the most. Interestingly, these states are consistently clustered together regardless of the value of `kclust`, which means that these states are very similar.
+
+Cluster 5 represents the states that had the earliest and worst outbreaks, but have beaten back the virus for now. Cluster 6 are the states that were 
+
 ### Sources
 
 * https://rpubs.com/esobolewska/dtw-time-series
