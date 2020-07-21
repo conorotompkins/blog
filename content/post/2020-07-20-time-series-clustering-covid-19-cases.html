@@ -206,7 +206,7 @@ covid %&gt;%
              color = cluster_assignment, group = state)) +
   geom_hline(yintercept = 0, linetype = 2) +
   geom_vline(xintercept = 60, linetype = 2) +
-  geom_line(size = 1.5, alpha = .5) +
+  geom_line(size = 1, alpha = .5) +
   facet_wrap(~cluster_assignment, ncol = 4) +
   guides(color = FALSE) +
   labs(title = &quot;kclust == 12&quot;)</code></pre>
@@ -251,6 +251,8 @@ state_clustered &lt;- map %&gt;%
   theme(legend.position = &quot;bottom&quot;,
         legend.direction = &quot;horizontal&quot;)</code></pre>
 <p><img src="/post/2020-07-20-time-series-clustering-covid-19-cases_files/figure-html/unnamed-chunk-27-1.png" width="672" /></p>
+<p>Cluster 3 stands out as the group of states that are currently struggling with COVID-19 the most. Interestingly, these states are consistently clustered together regardless of the value of <code>kclust</code>, which means that these states are very similar.</p>
+<p>Cluster 5 represents the states that had the earliest and worst outbreaks, but have beaten back the virus for now. Cluster 6 are the states that were</p>
 <div id="sources" class="section level3">
 <h3>Sources</h3>
 <ul>
